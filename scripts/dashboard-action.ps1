@@ -50,7 +50,9 @@ try {
     Set-ActionState -State 'running' -StartedAt $StartedAt
     $ScriptName = switch ($Action) { 'start' { 'start.ps1' } 'restart' { 'restart.ps1' } 'shutdown' { 'shutdown.ps1' } 'backup' { 'backup.ps1' } 'check-update' { 'check-update.ps1' } 'update' { 'update-server.ps1' } 'restore' { 'restore-backup.ps1' } 'migration-export' { 'export-migration.ps1' } 'diagnostics' { 'test-project.ps1' } }
     $ScriptArguments = if ($Action -eq 'update') { @('-NonInteractive') } elseif ($Action -eq 'restore') { @('-BackupName', $Target) } elseif ($Action -eq 'diagnostics') { @('-Online') } else { @() }
-    & (Join-Path $PSScriptRoot $ScriptName) @ScriptArguments
+    $ScriptPath = Join-Path $PSScriptRoot $ScriptName
+    if (@($ScriptArguments).Count -gt 0) { & $ScriptPath @ScriptArguments }
+    else { & $ScriptPath }
     if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "$ScriptName exited with code $LASTEXITCODE." }
     $CompletedAt = (Get-Date).ToString('o')
     $Message = 'Operation completed successfully.'

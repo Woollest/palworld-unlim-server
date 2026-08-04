@@ -34,6 +34,12 @@ Describe 'Palworld Server repository' {
         if ($Runner -notmatch 'dashboard-history\.json') { throw 'Action history is missing.' }
     }
 
+    It 'does not pass an empty positional argument to action scripts' {
+        $Runner = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard-action.ps1') -Raw
+        $Runner | Should Match 'if \(@\(\$ScriptArguments\)\.Count -gt 0\)'
+        $Runner | Should Match 'else \{ & \$ScriptPath \}'
+    }
+
 
     It 'renders bounded health history without external chart code' {
         $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw

@@ -68,6 +68,13 @@ Invoke-TestCase 'PalOps operations are serialized and recorded' {
     if ($Runner -notmatch "Set-ActionState -State 'failed'") { throw 'Failed operations are not recorded.' }
 }
 
+Invoke-TestCase 'PalOps omits empty positional arguments' {
+    $Runner = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard-action.ps1') -Raw
+    if ($Runner -notmatch 'if \(@\(\$ScriptArguments\)\.Count -gt 0\)' -or $Runner -notmatch 'else \{ & \$ScriptPath \}') {
+        throw 'Argument-free actions may receive an empty positional argument.'
+    }
+}
+
 Invoke-TestCase 'PalOps health history is local and bounded' {
     $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
     if ($Dashboard -notmatch "logs\\health-metrics\.csv") { throw 'Dashboard does not use the local health history.' }
