@@ -9,7 +9,7 @@ PalworldServer/
 ├── Manage-Server.ps1            # PalOps launcher; -Legacy enables recovery menu
 ├── compose.yaml                 # Palworld container definition
 ├── .env.example                 # Public server configuration template
-├── web/                         # Local PalOps HTML, CSS and JavaScript
+├── web/                         # PalOps UI, PWA manifest, service worker and icon
 ├── config/
 │   ├── PalWorldSettings.ini.example
 │   ├── discord.env.example      # Public Discord configuration template
@@ -40,6 +40,10 @@ PalworldServer/
 5. Docker runs the Palworld process; Unlim remains a host-side process for UDP connectivity.
 
 PowerShell remains an implementation and recovery layer, but is no longer the normal operator interface.
+
+## Installed app model
+
+PalOps is an installable progressive web app served from localhost. The manifest launches it in a standalone window. The service worker uses network-first caching only for the static application shell; `/api/` requests are never intercepted, so status and administrative operations always use live local state. The application does not expose PalOps beyond `127.0.0.1`.
 
 ## Data flow
 

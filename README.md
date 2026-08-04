@@ -279,7 +279,7 @@ docker compose exec palworld-server sh -c 'cat /pal/Package/DefaultPalWorldSetti
 
 ## 更新
 
-通常は `Open-Server-Manager.cmd` の「8. Safely update to the latest version」を使用してください。公式レジストリの最新版を確認し、更新前の安全停止とバックアップを行います。更新後に起動できなかった場合は、旧イメージと更新前セーブを自動復元します。確認欄へ表示どおり `UPDATE バージョン` と入力しない限り更新されません。
+通常はPalOpsの「更新確認」から最新版を確認し、「安全更新」を使用してください。更新前に参加者への予告、安全停止、バックアップを行います。更新後に起動できなかった場合は、旧イメージと更新前セーブを自動復元します。
 
 更新前に `./scripts/backup.ps1` を実行します。その後、Palworld公式Dockerリポジトリで対応する最新タグを確認し、`.env` の `PALWORLD_IMAGE` を変更して起動してください。`latest` の自動追従は、ゲーム更新との不整合を避けるため使用していません。
 
@@ -289,6 +289,7 @@ docker compose exec palworld-server sh -c 'cat /pal/Package/DefaultPalWorldSetti
 - 参加者が接続できない: ホスト/参加者双方でUnlimを起動し、Unlim画面の実際のローカル割当ポートを確認
 - Palworldのバージョン不一致: 公式リポジトリの対応イメージタグへ更新
 - 保存領域: `data/Saved`、バックアップ: `backups`
+- PalOpsをアプリとして追加できない: EdgeまたはChromeで `http://127.0.0.1:8765/` を開き、アドレスバーのインストールアイコンを確認
 
 ## 確認した公式情報（2026-07-31確認）
 

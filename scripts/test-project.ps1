@@ -61,6 +61,15 @@ Invoke-TestCase 'PalOps dashboard is localhost-only' {
     if ($Dashboard -match 'http://\+|http://\*:') { throw 'Dashboard contains a wildcard listener.' }
 }
 
+Invoke-TestCase 'PalOps PWA is complete and keeps APIs live' {
+    $Manifest = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/manifest.webmanifest') -Raw | ConvertFrom-Json
+    $Worker = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/service-worker.js') -Raw
+    $Page = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/index.html') -Raw
+    if ($Manifest.display -ne 'standalone' -or @($Manifest.icons).Count -lt 2) { throw 'PWA manifest is incomplete.' }
+    if ($Worker -notmatch "pathname\.startsWith\('/api/'\)") { throw 'PWA may cache live API requests.' }
+    if ($Page -notmatch 'rel="manifest"' -or $Page -notmatch 'id="installApp"') { throw 'PWA installation UI is missing.' }
+}
+
 Invoke-TestCase 'PalOps operations are serialized and recorded' {
     $Runner = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard-action.ps1') -Raw
     if ($Runner -notmatch '\[IO\.File\]::Open\(.+FileShare\]::None') { throw 'Exclusive action locking is missing.' }

@@ -4,7 +4,7 @@ Describe 'Palworld Server repository' {
     }
 
     It 'contains the required public entry points' {
-        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml')) {
+        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml')) {
             if (-not (Test-Path (Join-Path $ProjectRoot $Path))) { throw "Missing: $Path" }
         }
     }
@@ -25,6 +25,15 @@ Describe 'Palworld Server repository' {
         $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw
         if ($Dashboard -notmatch 'http://127\.0\.0\.1:\$Port/') { throw 'Dashboard is not bound to localhost.' }
         if ($Dashboard -notmatch "Headers\['Origin'\]") { throw 'Dashboard origin validation is missing.' }
+    }
+
+    It 'ships an installable PWA without caching API requests' {
+        $Manifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/manifest.webmanifest') -Raw | ConvertFrom-Json
+        $Worker = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/service-worker.js') -Raw
+        $Page = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/index.html') -Raw
+        if ($Manifest.display -ne 'standalone' -or @($Manifest.icons).Count -lt 2) { throw 'PWA manifest is incomplete.' }
+        if ($Worker -notmatch "pathname\.startsWith\('/api/'\)") { throw 'Service worker may cache live API requests.' }
+        if ($Page -notmatch 'rel="manifest"' -or $Page -notmatch 'id="installApp"') { throw 'PWA installation UI is missing.' }
     }
 
 
