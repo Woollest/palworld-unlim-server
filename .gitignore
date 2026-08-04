@@ -1,0 +1,20 @@
+# Local configuration and secrets
+.env
+config/*.env
+
+# Persistent server data and generated artifacts
+data/
+runtime/
+backups/
+logs/
+recovery/
+work/
+reports/
+dist/
+
+# Local editor and operating-system files
+*.tmp
+*.partial
+.DS_Store
+Thumbs.db
+desktop.ini
