@@ -36,8 +36,9 @@ Describe 'Palworld Server repository' {
 
     It 'does not pass an empty positional argument to action scripts' {
         $Runner = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard-action.ps1') -Raw
-        $Runner | Should Match 'if \(@\(\$ScriptArguments\)\.Count -gt 0\)'
-        $Runner | Should Match 'else \{ & \$ScriptPath \}'
+        if ($Runner -notmatch 'if \(@\(\$ScriptArguments\)\.Count -gt 0\)' -or $Runner -notmatch 'else \{ & \$ScriptPath \}') {
+            throw 'Argument-free actions may receive an empty positional argument.'
+        }
     }
 
 
