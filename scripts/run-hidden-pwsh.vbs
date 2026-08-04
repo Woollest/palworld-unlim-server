@@ -9,13 +9,14 @@ Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 scriptPath = fso.GetAbsolutePathName(WScript.Arguments(0))
 shell.CurrentDirectory = fso.GetParentFolderName(fso.GetParentFolderName(scriptPath))
-powershellPath = shell.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+powershellPath = shell.ExpandEnvironmentStrings("%ProgramFiles%\PowerShell\7\pwsh.exe")
+If Not fso.FileExists(powershellPath) Then
+    powershellPath = shell.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+End If
 command = """" & powershellPath & """ -NoProfile -NonInteractive -ExecutionPolicy Bypass -File """ & scriptPath & """"
 For index = 1 To WScript.Arguments.Count - 1
     command = command & " " & WScript.Arguments(index)
 Next
 
-' Window style 0 runs without creating a visible console window.
-' Wait for completion so Task Scheduler receives the real exit code and can retry failures.
 exitCode = shell.Run(command, 0, True)
 WScript.Quit exitCode

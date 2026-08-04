@@ -12,6 +12,13 @@ if ($Versions.Count -eq 0) { throw 'No versioned tags were returned by the offic
 $LatestTag = $Versions[0].Tag
 $LatestVersion = $Versions[0].Version
 $CurrentVersion = [version]($CurrentTag -replace '^v')
+$UpdateStatusPath = Join-Path $ProjectDir 'runtime\update-status.json'
+[pscustomobject]@{
+    checkedAt = (Get-Date).ToString('o')
+    currentTag = $CurrentTag
+    latestTag = $LatestTag
+    available = $LatestVersion -gt $CurrentVersion
+} | ConvertTo-Json -Compress | Set-Content -LiteralPath $UpdateStatusPath -Encoding UTF8
 $StatePath = Join-Path $ProjectDir 'runtime\version-notified'
 if ($LatestVersion -gt $CurrentVersion) {
     $AlreadyNotified = if (Test-Path -LiteralPath $StatePath) { (Get-Content -LiteralPath $StatePath -Raw).Trim() } else { '' }

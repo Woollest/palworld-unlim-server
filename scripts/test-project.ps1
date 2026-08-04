@@ -33,7 +33,7 @@ Write-Host ("Mode: {0}" -f $(if ($Online) { 'online' } else { 'repository' }))
 Write-Host ''
 
 Invoke-TestCase 'Required public files exist' {
-    $Required = @('.env.example', '.gitattributes', '.gitignore', 'LICENSE', 'CONTRIBUTING.md', 'compose.yaml', 'README.md', 'SECURITY.md', 'Manage-Server.ps1', 'Open-Server-Manager.cmd', 'config/discord.env.example', 'config/PalWorldSettings.ini.example', 'docker/helper.sh', 'docs/ARCHITECTURE.md', '.github/workflows/ci.yml', '.github/workflows/release.yml', 'scripts/build-release.ps1')
+    $Required = @('.env.example', '.gitattributes', '.gitignore', 'LICENSE', 'CONTRIBUTING.md', 'compose.yaml', 'README.md', 'SECURITY.md', 'Manage-Server.ps1', 'Open-Server-Manager.cmd', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'config/discord.env.example', 'config/PalWorldSettings.ini.example', 'docker/helper.sh', 'docs/ARCHITECTURE.md', '.github/workflows/ci.yml', '.github/workflows/release.yml', 'scripts/build-release.ps1', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/stop-dashboard.ps1', 'scripts/restore-backup.ps1', 'scripts/maintenance.ps1', 'scripts/restart.ps1', 'scripts/discord-command-bot.ps1', 'scripts/stop-discord-command-bot.ps1')
     $Missing = @($Required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $ProjectDir $_)) })
     if ($Missing.Count) { throw "Missing: $($Missing -join ', ')" }
 }
@@ -52,6 +52,87 @@ Invoke-TestCase 'Management API is localhost-only' {
     $Compose = Get-Content -LiteralPath (Join-Path $ProjectDir 'compose.yaml') -Raw
     if ($Compose -notmatch '127\.0\.0\.1:\$\{PALWORLD_REST_PORT:-8212\}:8212/tcp') { throw 'REST API port 8212 is not explicitly bound to 127.0.0.1.' }
     if ($Compose -match '(?m)^\s*-\s*["'']?8212:8212') { throw 'REST API has a public port binding.' }
+}
+
+Invoke-TestCase 'PalOps dashboard is localhost-only' {
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    if ($Dashboard -notmatch 'http://127\.0\.0\.1:\$Port/') { throw 'Dashboard listener is not explicitly bound to 127.0.0.1.' }
+    if ($Dashboard -notmatch "Headers\['Origin'\]") { throw 'Dashboard actions do not validate the browser origin.' }
+    if ($Dashboard -match 'http://\+|http://\*:') { throw 'Dashboard contains a wildcard listener.' }
+}
+
+Invoke-TestCase 'PalOps operations are serialized and recorded' {
+    $Runner = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard-action.ps1') -Raw
+    if ($Runner -notmatch '\[IO\.File\]::Open\(.+FileShare\]::None') { throw 'Exclusive action locking is missing.' }
+    if ($Runner -notmatch 'dashboard-history\.json') { throw 'Operation history persistence is missing.' }
+    if ($Runner -notmatch "Set-ActionState -State 'failed'") { throw 'Failed operations are not recorded.' }
+}
+
+Invoke-TestCase 'PalOps health history is local and bounded' {
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    if ($Dashboard -notmatch "logs\\health-metrics\.csv") { throw 'Dashboard does not use the local health history.' }
+    if ($Dashboard -notmatch '\$MaximumPoints = 180') { throw 'Health API response is not bounded.' }
+    $Client = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/app.js') -Raw
+    $Page = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/index.html') -Raw
+    if ($Client -notmatch 'renderChart' -or $Page -match '<script[^>]+src=["'']https?://') { throw 'Local chart rendering is missing or uses an external dependency.' }
+}
+
+Invoke-TestCase 'PalOps diagnosis covers operational risks' {
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    foreach ($Code in @('disk-low', 'backup-missing', 'backup-stale', 'unlim-offline', 'cpu-high', 'memory-high', 'fps-low')) {
+        if ($Dashboard -notmatch "code = '$Code'") { throw "Missing diagnosis: $Code" }
+    }
+}
+
+Invoke-TestCase 'PalOps safe update requires the guarded updater' {
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    $Runner = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard-action.ps1') -Raw
+    $Updater = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/update-server.ps1') -Raw
+    $Checker = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/check-update.ps1') -Raw
+    if ($Dashboard -notmatch 'Get-UpdateStatus' -or $Runner -notmatch "'update' \{ 'update-server\.ps1' \}") { throw 'Dashboard update routing is incomplete.' }
+    if ($Updater -notmatch 'param\(\[switch\]\$NonInteractive\)' -or $Updater -notmatch 'Restore-UpdateBackup') { throw 'Safe non-interactive update or rollback is missing.' }
+    if ($Checker -notmatch 'runtime\\update-status\.json') { throw 'Update check status is not persisted.' }
+}
+
+Invoke-TestCase 'PalOps dashboard has single-instance recovery' {
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    $Watchdog = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/watchdog.ps1') -Raw
+    $AutoStart = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/setup-auto-start.ps1') -Raw
+    if ($Dashboard -notmatch 'Local\\PalOpsDashboard' -or $Dashboard -notmatch '\$CreatedNew') { throw 'Dashboard single-instance mutex is missing.' }
+    if ($Watchdog -notmatch 'dashboard\.ps1' -or $Watchdog -notmatch 'DASHBOARD_PORT') { throw 'Dashboard watchdog recovery is missing.' }
+    if ($AutoStart -notmatch 'PalOps-Dashboard-AutoStart') { throw 'Dashboard auto-start task is missing.' }
+}
+
+Invoke-TestCase 'PalOps restore is constrained and recoverable' {
+    $Restore = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/restore.ps1') -Raw
+    $Coordinator = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/restore-backup.ps1') -Raw
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    if ($Restore -notmatch 'ResolvedBackupsDir' -or $Restore -notmatch 'Saved-before-restore' -or $Restore -notmatch '\$NonInteractive') { throw 'Restore path confinement or rollback is missing.' }
+    if ($Coordinator -notmatch 'shutdown\.ps1' -or $Coordinator -notmatch 'start\.ps1') { throw 'Coordinated restore lifecycle is incomplete.' }
+    if ($Dashboard -notmatch 'Test-BackupName' -or $Dashboard -notmatch 'ContentLength64') { throw 'Dashboard restore request validation is incomplete.' }
+}
+
+Invoke-TestCase 'PalOps maintenance scheduling is bounded and persistent' {
+    $Maintenance = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/maintenance.ps1') -Raw
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    if ($Maintenance -notmatch "ValidateSet\('restart', 'update', 'backup', 'shutdown'\)" -or $Maintenance -notmatch 'AddDays\(30\)') { throw 'Maintenance operation or time bounds are missing.' }
+    if ($Maintenance -notmatch 'PalOps-Maintenance-\$Id' -or $Maintenance -notmatch 'maintenance-schedules\.json') { throw 'Maintenance task or persistence is missing.' }
+    if ($Dashboard -notmatch '/api/maintenance/schedule' -or $Dashboard -notmatch '/cancel') { throw 'Maintenance API routes are incomplete.' }
+}
+
+Invoke-TestCase 'PalOps world settings use an allowlist and snapshots' {
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    if ($Dashboard -notmatch 'Get-SettingsSchema' -or $Dashboard -notmatch 'Unsupported setting') { throw 'Settings allowlist is missing.' }
+    if ($Dashboard -notmatch 'recovery\\settings' -or $Dashboard -notmatch 'settings-restart-required') { throw 'Settings snapshots or restart marker is missing.' }
+    if ($Dashboard -notmatch '/api/settings' -or $Dashboard -notmatch 'ContentLength64') { throw 'Settings API bounds are incomplete.' }
+}
+
+Invoke-TestCase 'PalOps Discord commands are permissioned and confirmed' {
+    $Bot = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/discord-command-bot.ps1') -Raw
+    $Template = Get-Content -LiteralPath (Join-Path $ProjectDir 'config/discord.env.example') -Raw
+    if ($Bot -notmatch 'Test-AdministratorPermissions' -or $Bot -notmatch 'Request-Confirmation' -or $Bot -notmatch 'Confirm-Action') { throw 'Discord command authorization or confirmation is missing.' }
+    if ($Bot -match 'Get-UnlimConnectionKey' -or $Bot -match '/api/actions/(shutdown|update|restore)') { throw 'Discord commands expose a secret or unsafe direct operation.' }
+    if ($Template -notmatch 'DISCORD_COMMAND_CHANNEL_ID=' -or $Template -notmatch 'DISCORD_COMMAND_PREFIX=') { throw 'Discord command configuration is missing.' }
 }
 
 Invoke-TestCase 'Git excludes secrets and generated data' {
@@ -139,7 +220,7 @@ if ($Online) {
     }
 
     Invoke-TestCase 'Windows maintenance tasks use the current project path' {
-        $ExpectedTasks = @('Palworld-Unlim-AutoStart', 'Palworld-Monitor-Watchdog', 'Palworld-Idle-Backup', 'Palworld-Backup-Verify', 'Palworld-Update-Check', 'Palworld-Health-Metrics', 'Palworld-Log-Maintenance', 'Palworld-Project-Test')
+        $ExpectedTasks = @('Palworld-Unlim-AutoStart', 'PalOps-Dashboard-AutoStart', 'PalOps-Discord-Commands-AutoStart', 'Palworld-Monitor-Watchdog', 'Palworld-Idle-Backup', 'Palworld-Backup-Verify', 'Palworld-Update-Check', 'Palworld-Health-Metrics', 'Palworld-Log-Maintenance', 'Palworld-Project-Test')
         foreach ($Name in $ExpectedTasks) {
             $Task = Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
             if (-not $Task) { throw "Scheduled task is missing: $Name" }

@@ -1,4 +1,7 @@
-param([string]$BackupPath = '')
+param(
+    [string]$BackupPath = '',
+    [switch]$NonInteractive
+)
 
 $ErrorActionPreference = 'Stop'
 $ProjectDir = Split-Path -Parent $PSScriptRoot
@@ -32,6 +35,13 @@ if (-not $BackupPath) {
 else {
     $BackupPath = (Resolve-Path -LiteralPath $BackupPath).Path
 }
+$ResolvedBackupsDir = (Resolve-Path -LiteralPath $BackupsDir).Path
+if (-not $BackupPath.StartsWith($ResolvedBackupsDir + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'The backup must be inside the project backups directory.'
+}
+if ([IO.Path]::GetFileName($BackupPath) -notmatch '^palworld-\d{8}-\d{6}\.zip$') {
+    throw 'The backup filename is not recognized.'
+}
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $Archive = [System.IO.Compression.ZipFile]::OpenRead($BackupPath)
@@ -44,16 +54,19 @@ finally {
     $Archive.Dispose()
 }
 
-$Confirmation = Read-Host "Type RESTORE to restore $([IO.Path]::GetFileName($BackupPath))"
-if ($Confirmation -cne 'RESTORE') {
-    Write-Host 'Restore cancelled.'
-    return
+if (-not $NonInteractive) {
+    $Confirmation = Read-Host "Type RESTORE to restore $([IO.Path]::GetFileName($BackupPath))"
+    if ($Confirmation -cne 'RESTORE') {
+        Write-Host 'Restore cancelled.'
+        return
+    }
 }
 
 $Timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $WorkRoot = Join-Path $ProjectDir 'work'
 $RecoveryRoot = Join-Path $ProjectDir 'recovery'
 $RestoreTemp = Join-Path $WorkRoot "restore-$Timestamp"
+$SafetyPath = $null
 New-Item -ItemType Directory -Force -Path $RestoreTemp, $RecoveryRoot | Out-Null
 
 try {
@@ -70,6 +83,12 @@ try {
         Write-Host "Previous data preserved: $SafetyPath"
     }
     Move-Item -LiteralPath $RestoredSaved -Destination $CurrentSaved
+}
+catch {
+    if ($SafetyPath -and (Test-Path -LiteralPath $SafetyPath) -and -not (Test-Path -LiteralPath $CurrentSaved)) {
+        Move-Item -LiteralPath $SafetyPath -Destination $CurrentSaved
+    }
+    throw
 }
 finally {
     if (Test-Path -LiteralPath $RestoreTemp) {

@@ -4,7 +4,7 @@ Describe 'Palworld Server repository' {
     }
 
     It 'contains the required public entry points' {
-        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'config/PalWorldSettings.ini.example', 'scripts/test-project.ps1', '.github/workflows/ci.yml')) {
+        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml')) {
             if (-not (Test-Path (Join-Path $ProjectRoot $Path))) { throw "Missing: $Path" }
         }
     }
@@ -19,5 +19,113 @@ Describe 'Palworld Server repository' {
     It 'keeps the REST API on localhost' {
         $Compose = Get-Content -LiteralPath (Join-Path $ProjectRoot 'compose.yaml') -Raw
         if ($Compose -notmatch '127\.0\.0\.1:\$\{PALWORLD_REST_PORT:-8212\}:8212/tcp') { throw 'REST API is not bound to localhost.' }
+    }
+
+    It 'keeps the PalOps dashboard on localhost' {
+        $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw
+        if ($Dashboard -notmatch 'http://127\.0\.0\.1:\$Port/') { throw 'Dashboard is not bound to localhost.' }
+        if ($Dashboard -notmatch "Headers\['Origin'\]") { throw 'Dashboard origin validation is missing.' }
+    }
+
+
+    It 'serializes and records dashboard operations' {
+        $Runner = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard-action.ps1') -Raw
+        if ($Runner -notmatch 'FileShare\]::None') { throw 'Exclusive action lock is missing.' }
+        if ($Runner -notmatch 'dashboard-history\.json') { throw 'Action history is missing.' }
+    }
+
+
+    It 'renders bounded health history without external chart code' {
+        $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw
+        $Client = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/app.js') -Raw
+        $Page = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/index.html') -Raw
+        if ($Dashboard -notmatch '\$MaximumPoints = 180') { throw 'Health history is not bounded.' }
+        if ($Client -notmatch 'renderChart' -or $Page -match '<script[^>]+src=["'']https?://') { throw 'Charts are not self-contained.' }
+    }
+
+
+    It 'classifies healthy, disconnected and stopped states' {
+        . (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -FunctionsOnly
+        $BackupPath = Join-Path $TestDrive 'recent.zip'
+        Set-Content -LiteralPath $BackupPath -Value 'test'
+        $Backup = Get-Item -LiteralPath $BackupPath
+        $Health = [pscustomobject]@{ points = @(
+            [pscustomobject]@{ online = $true; cpu = 20; memory = 30; fps = 59 },
+            [pscustomobject]@{ online = $true; cpu = 25; memory = 32; fps = 59 },
+            [pscustomobject]@{ online = $true; cpu = 30; memory = 35; fps = 59 }
+        ) }
+        $Healthy = Get-OperationalInsights -ServerRunning $true -UnlimRunning $true -Disk $null -LatestBackup $Backup -Health $Health
+        $Disconnected = Get-OperationalInsights -ServerRunning $true -UnlimRunning $false -Disk $null -LatestBackup $Backup -Health $Health
+        $Stopped = Get-OperationalInsights -ServerRunning $false -UnlimRunning $false -Disk $null -LatestBackup $Backup -Health $Health
+        if ($Healthy.state -ne 'healthy') { throw "Expected healthy, got $($Healthy.state)." }
+        if ($Disconnected.state -ne 'critical') { throw "Expected critical, got $($Disconnected.state)." }
+        if ($Stopped.state -ne 'stopped') { throw "Expected stopped, got $($Stopped.state)." }
+    }
+
+
+    It 'reads persisted update availability' {
+        . (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -FunctionsOnly
+        $ProjectDir = Join-Path $TestDrive 'update-project'
+        New-Item -ItemType Directory -Force -Path (Join-Path $ProjectDir 'runtime') | Out-Null
+        Set-Content -LiteralPath (Join-Path $ProjectDir '.env') -Value 'PALWORLD_IMAGE=ghcr.io/pocketpairjp/palserver:v1.0.0.0'
+        [pscustomobject]@{ checkedAt = '2026-08-04T00:00:00+09:00'; currentTag = 'v1.0.0.0'; latestTag = 'v1.0.1.0'; available = $true } |
+            ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path $ProjectDir 'runtime/update-status.json')
+        $Status = Get-UpdateStatus
+        if (-not $Status.known -or -not $Status.available -or $Status.latestTag -ne 'v1.0.1.0') { throw 'Persisted update status was not returned.' }
+    }
+
+
+    It 'keeps one recoverable dashboard instance' {
+        $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw
+        $Watchdog = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/watchdog.ps1') -Raw
+        if ($Dashboard -notmatch 'Local\\PalOpsDashboard' -or $Watchdog -notmatch 'dashboard\.ps1') { throw 'Single-instance recovery is incomplete.' }
+    }
+
+
+    It 'rejects unsafe backup names' {
+        . (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -FunctionsOnly
+        if (-not (Test-BackupName 'palworld-20260804-120000.zip')) { throw 'A valid backup name was rejected.' }
+        foreach ($UnsafeName in @('..\secret.zip', '../secret.zip', 'other.zip', 'palworld-20260804-120000.zip.exe', 'C:\temp\palworld-20260804-120000.zip')) {
+            if (Test-BackupName $UnsafeName) { throw "Unsafe backup name accepted: $UnsafeName" }
+        }
+    }
+
+
+    It 'bounds maintenance scheduling operations' {
+        $Maintenance = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/maintenance.ps1') -Raw
+        if ($Maintenance -notmatch "ValidateSet\('restart', 'update', 'backup', 'shutdown'\)") { throw 'Maintenance operation allowlist is missing.' }
+        if ($Maintenance -notmatch 'AddDays\(30\)' -or $Maintenance -notmatch 'AddMinutes\(1\)') { throw 'Maintenance time bounds are incomplete.' }
+    }
+
+
+    It 'validates and snapshots editable world settings' {
+        . (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -FunctionsOnly
+        $ProjectDir = Join-Path $TestDrive 'settings-project'
+        $SettingsDir = Join-Path $ProjectDir 'data/Saved/Config/LinuxServer'
+        New-Item -ItemType Directory -Force -Path $SettingsDir, (Join-Path $ProjectDir 'runtime') | Out-Null
+        $SettingsPath = Join-Path $SettingsDir 'PalWorldSettings.ini'
+        Set-Content -LiteralPath $SettingsPath -Value '[/Script/Pal.PalGameWorldSettings]`nOptionSettings=(ExpRate=1.500000,ServerPlayerMaxNum=8,ServerName="fixture")'
+        $UnknownFailed = $false
+        try { Set-EditableWorldSettings -Submitted ([pscustomobject]@{ UnknownSetting = 1 }) | Out-Null } catch { $UnknownFailed = $true }
+        $RangeFailed = $false
+        try { Set-EditableWorldSettings -Submitted ([pscustomobject]@{ ExpRate = 100 }) | Out-Null } catch { $RangeFailed = $true }
+        if (-not $UnknownFailed -or -not $RangeFailed) { throw 'Unsafe setting input was accepted.' }
+        $Result = Set-EditableWorldSettings -Submitted ([pscustomobject]@{ ExpRate = 2.5 })
+        $Updated = Get-Content -LiteralPath $SettingsPath -Raw
+        if ($Result.changes.Count -ne 1 -or $Updated -notmatch 'ExpRate=2\.5' -or $Updated -notmatch 'ServerName="fixture"') { throw 'Allowlisted setting update did not preserve unrelated values.' }
+        if (-not (Test-Path -LiteralPath (Join-Path $ProjectDir 'runtime/settings-restart-required'))) { throw 'Restart marker was not created.' }
+        if (@(Get-ChildItem -LiteralPath (Join-Path $ProjectDir 'recovery/settings') -Filter '*.ini').Count -ne 1) { throw 'Settings snapshot was not created.' }
+    }
+
+
+    It 'parses Discord commands and checks Administrator permission' {
+        . (Join-Path $ProjectRoot 'scripts/discord-command-bot.ps1') -FunctionsOnly
+        $StatusCommand = Parse-PalOpsCommand -Content '  !PALOPS status  ' -Prefix '!palops'
+        $ConfirmCommand = Parse-PalOpsCommand -Content '!palops confirm ABC123' -Prefix '!palops'
+        if ($StatusCommand.name -ne 'status' -or $ConfirmCommand.name -ne 'confirm' -or $ConfirmCommand.argument -ne 'ABC123') { throw 'Discord command parsing failed.' }
+        if ($null -ne (Parse-PalOpsCommand -Content '!other status' -Prefix '!palops')) { throw 'Foreign command prefix was accepted.' }
+        $Roles = @([pscustomobject]@{ id = 'guild'; permissions = '0' }, [pscustomobject]@{ id = 'admin-role'; permissions = '8' }, [pscustomobject]@{ id = 'member-role'; permissions = '1024' })
+        if (-not (Test-AdministratorPermissions -RoleIds @('admin-role') -GuildRoles $Roles -GuildId 'guild')) { throw 'Administrator role was rejected.' }
+        if (Test-AdministratorPermissions -RoleIds @('member-role') -GuildRoles $Roles -GuildId 'guild') { throw 'Non-administrator role was accepted.' }
     }
 }

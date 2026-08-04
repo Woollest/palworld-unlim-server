@@ -19,7 +19,23 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 ## 日常操作
 
-`Open-Server-Manager.cmd` をダブルクリックすると、起動、安全停止、バックアップ、稼働状況、参加者確認、ログ表示、復元、安全な更新をメニューから実行できます。
+`Open-Dashboard.cmd` または互換用の `Open-Server-Manager.cmd` をダブルクリックすると、PalOps Web管理画面が開きます。日常運用はこの画面に一本化されています。旧PowerShellメニューは緊急復旧時に限り `./Manage-Server.ps1 -Legacy` で起動できます。
+
+## PalOps Web管理画面
+
+`Open-Dashboard.cmd` をダブルクリックすると、ローカル管理画面がブラウザーで開きます。
+
+- Palworld・Unlimの稼働状況
+- 現在の参加人数と参加者名
+- FPS、稼働時間、ディスク空き容量
+- 最新バックアップ
+- 起動、検証付きバックアップ、安全停止、安全再起動・更新・復元
+- メンテナンス予約とゲーム内・Discord事前通知
+- 24時間のFPS・CPU・メモリ推移と状態診断
+- ワールド設定編集、サーバーログ、オンライン診断
+- インシデント記録、設定・データ移行パッケージ作成
+
+管理画面は `http://127.0.0.1:8765` だけで待ち受け、LANやインターネットには公開しません。Windowsログイン後は自動起動・監視されるため、ブラウザーを閉じてもPalOpsとPalworldの処理は継続します。
 
 ## 自動テスト
 
@@ -46,6 +62,27 @@ Set-ExecutionPolicy -Scope Process Bypass
 Windows 11、WSL2、Docker Desktopを想定した緊急構築用セットです。Palworld公式Dockerイメージを使い、ゲーム通信の `8211/udp` だけを公開します。
 
 Discordへの稼働状況の自動通知を利用する場合は、[Discord Bot設定](docs/DISCORD-BOT-SETUP.md) の手順で設定してください。
+
+### Discordコマンド
+
+Botを設定すると、指定チャンネルで次のテキストコマンドを利用できます。`DISCORD_COMMAND_CHANNEL_ID`が空の場合は通常のステータスチャンネルを使用します。
+
+```text
+!palops help
+!palops status
+!palops players
+!palops maintenance
+```
+
+DiscordのAdministrator権限を持つユーザーは、確認コード付きで次の操作も実行できます。
+
+```text
+!palops backup
+!palops restart
+!palops confirm ABC123
+```
+
+管理コマンドの確認コードは2分で失効します。停止、更新、復元はDiscordから直接実行できません。
 
 構成の詳細は[アーキテクチャ](docs/ARCHITECTURE.md)を参照してください。
 

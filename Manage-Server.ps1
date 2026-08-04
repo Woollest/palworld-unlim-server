@@ -1,6 +1,11 @@
+param([switch]$Legacy)
 $ErrorActionPreference = 'Continue'
 $ProjectDir = $PSScriptRoot
 Set-Location -LiteralPath $ProjectDir
+if (-not $Legacy) {
+    & "$ProjectDir\scripts\open-dashboard.ps1"
+    return
+}
 . "$ProjectDir\scripts\common.ps1"
 
 function Wait-ForEnter {

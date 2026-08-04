@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PalOps</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div><h1>Palworld サーバー管理</h1><p class="subtitle">このPCで稼働しているサーバーの状態と操作</p></div>
+      <div id="overall" class="status"><i></i><span>確認中</span></div>
+    </header>
+    <section class="summary panel">
+      <div class="summary-item"><span>参加人数</span><strong id="players">– / 8</strong></div>
+      <div class="summary-item"><span>サーバーFPS</span><strong id="fps">–</strong></div>
+      <div class="summary-item"><span>稼働時間</span><strong id="uptime">–</strong></div>
+      <div class="summary-item"><span>ディスク空き容量</span><strong id="disk">–</strong></div>
+    </section>
+    <section class="details panel">
+      <div class="section-heading"><h2>稼働状況</h2><span>5秒ごとに自動更新</span></div>
+      <dl>
+        <div><dt>Unlim</dt><dd id="unlim" class="inline-status">確認中</dd></div>
+        <div><dt>最新バックアップ</dt><dd id="backup">まだありません</dd></div>
+        <div><dt>現在の参加者</dt><dd id="playerNames">参加者はいません</dd></div>
+      </dl>
+    </section>
+    <section id="diagnosis" class="diagnosis panel">
+      <div class="section-heading"><h2>状態診断</h2><span id="diagnosisState">確認中</span></div>
+      <div id="diagnosisList" class="diagnosis-list"></div>
+    </section>
+    <section class="updates panel">
+      <div class="section-heading"><h2>サーバー更新</h2><span id="updateState">未確認</span></div>
+      <div class="update-body">
+        <div class="version-pair"><div><span>現在</span><strong id="currentVersion">–</strong></div><span class="version-arrow">→</span><div><span>最新</span><strong id="latestVersion">–</strong></div></div>
+        <div class="update-actions"><span id="updateChecked">更新確認を実行してください</span><button data-action="check-update">更新確認</button><button data-action="update" id="updateButton">安全更新</button></div>
+      </div>
+    </section>
+    <details class="settings-editor panel">
+      <summary><span><strong>ワールド設定</strong><small id="settingsState">主要項目を安全に編集</small></span><span>開く</span></summary>
+      <form id="settingsForm">
+        <div id="settingsGroups"></div>
+        <div class="settings-footer"><p id="settingsMessage">変更は保存後の再起動で反映されます。</p><div><button type="submit">設定を保存</button><button type="button" data-action="restart">安全再起動</button></div></div>
+      </form>
+    </details>
+    <section class="maintenance panel">
+      <div class="section-heading"><h2>メンテナンス予約</h2><span id="maintenanceCount">0件</span></div>
+      <form id="maintenanceForm" class="maintenance-form">
+        <label>操作<select id="maintenanceOperation"><option value="restart">安全再起動</option><option value="update">安全更新</option><option value="backup">バックアップ</option><option value="shutdown">安全停止</option></select></label>
+        <label>実行日時<input id="maintenanceRunAt" type="datetime-local" required></label>
+        <label>事前予告<select id="maintenanceWarning"><option value="5">5分前</option><option value="10" selected>10分前</option><option value="15">15分前</option><option value="30">30分前</option><option value="60">60分前</option></select></label>
+        <button type="submit">予約する</button>
+      </form>
+      <p id="maintenanceMessage" class="form-message"></p>
+      <div id="maintenanceList" class="maintenance-list"><p class="empty">予約はありません。</p></div>
+    </section>
+    <section class="backup-manager panel">
+      <div class="section-heading"><h2>バックアップ管理</h2><span id="backupCount">確認中</span></div>
+      <div id="backupList" class="backup-list"><p class="empty">バックアップを読み込んでいます。</p></div>
+    </section>
+    <section class="operations-grid">
+      <section class="incident-manager panel">
+        <div class="section-heading"><h2>インシデント記録</h2><span id="incidentCount">0件</span></div>
+        <form id="incidentForm" class="incident-form"><select id="incidentSeverity"><option value="info">情報</option><option value="warning" selected>注意</option><option value="critical">障害</option></select><input id="incidentTitle" maxlength="100" placeholder="事象の概要" required><input id="incidentDetail" maxlength="1000" placeholder="原因・対応・引き継ぎ事項"><button>記録</button></form>
+        <p id="incidentMessage" class="form-message"></p><div id="incidentList" class="compact-list"></div>
+      </section>
+      <section class="migration-manager panel">
+        <div class="section-heading"><h2>設定・データ移行</h2><span>秘密情報は除外</span></div>
+        <p class="migration-copy">最新バックアップと設定を、別PCへ移せるZIPにまとめます。</p>
+        <button id="migrationExport" type="button">移行パッケージを作成</button><p id="migrationMessage" class="form-message"></p><div id="migrationList" class="compact-list"></div>
+      </section>
+    </section>
+    <section class="telemetry panel">
+      <div class="section-heading"><h2>過去24時間</h2><span id="healthSummary">データを確認中</span></div>
+      <div id="charts" class="charts">
+        <div class="chart"><div><span>サーバーFPS</span><strong id="fpsLatest">–</strong></div><svg id="fpsChart" viewBox="0 0 300 72" preserveAspectRatio="none" aria-label="FPSの推移"></svg></div>
+        <div class="chart"><div><span>CPU使用率</span><strong id="cpuLatest">–</strong></div><svg id="cpuChart" viewBox="0 0 300 72" preserveAspectRatio="none" aria-label="CPU使用率の推移"></svg></div>
+        <div class="chart"><div><span>メモリ使用率</span><strong id="memoryLatest">–</strong></div><svg id="memoryChart" viewBox="0 0 300 72" preserveAspectRatio="none" aria-label="メモリ使用率の推移"></svg></div>
+      </div>
+      <p id="chartEmpty" class="empty" hidden>監視データが蓄積されると、ここに推移が表示されます。</p>
+    </section>
+    <details class="log-viewer panel"><summary><span><strong>サーバーログ</strong><small>直近200行</small></span><button id="refreshLogs" type="button">更新</button></summary><pre id="serverLogs">開くとログを取得します。</pre></details>
+    <section class="panel controls">
+      <div><h2>サーバー操作</h2><p id="actionState">実行する操作を選択してください。</p></div>
+      <div class="buttons"><button data-action="start">起動</button><button data-action="backup">バックアップ</button><button data-action="diagnostics">診断を実行</button><button data-action="shutdown" class="danger">安全停止</button></div>
+    </section>
+    <section class="history panel">
+      <div class="section-heading"><h2>最近の操作</h2><span>直近8件</span></div>
+      <div id="historyList" class="history-list"><p class="empty">操作履歴はありません</p></div>
+    </section>
+    <footer><span>ローカル接続のみ</span><span id="updated">–</span></footer>
+  </main>
+  <dialog id="confirmDialog"><form method="dialog"><h2 id="dialogTitle"></h2><p id="dialogText"></p><div><button value="cancel">キャンセル</button><button id="confirmButton" value="confirm" class="danger">実行する</button></div></form></dialog>
+  <dialog id="restoreDialog"><form method="dialog"><h2>バックアップを復元</h2><p id="restoreTarget"></p><p>現在のワールドを退避し、選択した時点へ戻します。サーバー稼働中は参加者への予告とバックアップ後に復元し、完了後に再起動します。</p><label>確認のため「復元」と入力してください<input id="restoreConfirmation" autocomplete="off"></label><div><button value="cancel">キャンセル</button><button id="restoreButton" value="confirm" class="danger" disabled>復元する</button></div></form></dialog>
+  <script src="/app.js"></script>
+</body>
+</html>

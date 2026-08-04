@@ -1,3 +1,5 @@
+param([switch]$NonInteractive)
+
 $ErrorActionPreference = 'Stop'
 $ProjectDir = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $ProjectDir
@@ -48,6 +50,8 @@ Write-Host "Current image: $OldImage"
 Write-Host "Latest image:  $NewImage"
 if ([version]($NewTag -replace '^v') -le [version]($OldTag -replace '^v')) {
     Write-Host 'The server already uses the latest official version.' -ForegroundColor Green
+    [pscustomobject]@{ checkedAt = (Get-Date).ToString('o'); currentTag = $OldTag; latestTag = $NewTag; available = $false } |
+        ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path $ProjectDir 'runtime\update-status.json') -Encoding UTF8
     return
 }
 
@@ -60,10 +64,12 @@ catch {
     throw "The player list could not be checked, so the update was cancelled: $($_.Exception.Message)"
 }
 
-$Confirmation = Read-Host "Type UPDATE $NewTag to continue"
-if ($Confirmation -cne "UPDATE $NewTag") {
-    Write-Host 'Update cancelled.'
-    return
+if (-not $NonInteractive) {
+    $Confirmation = Read-Host "Type UPDATE $NewTag to continue"
+    if ($Confirmation -cne "UPDATE $NewTag") {
+        Write-Host 'Update cancelled.'
+        return
+    }
 }
 
 $BackupPath = $null
@@ -86,6 +92,8 @@ try {
 
     $Info = Invoke-PalworldApi -Method Get -Path 'info'
     Remove-Item -LiteralPath (Join-Path $ProjectDir 'runtime\version-notified') -Force -ErrorAction SilentlyContinue
+    [pscustomobject]@{ checkedAt = (Get-Date).ToString('o'); currentTag = $NewTag; latestTag = $NewTag; available = $false } |
+        ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path $ProjectDir 'runtime\update-status.json') -Encoding UTF8
     Invoke-DiscordNotificationSafe -Type Information -Message "Palworld server update completed: $OldTag -> $NewTag. Backup: $([IO.Path]::GetFileName($BackupPath))"
     Write-Host "Update completed: $OldTag -> $NewTag" -ForegroundColor Green
 }

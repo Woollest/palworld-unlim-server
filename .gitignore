@@ -10,6 +10,7 @@ logs/
 recovery/
 work/
 reports/
+exports/
 dist/
 private/
 

@@ -44,6 +44,7 @@ try {
     Start-PlayerMonitor
     Invoke-DiscordStatusSafe -Status Online -Detail 'Palworld and Unlim are running.' -PlayerCount 0
     Set-Content -LiteralPath (Join-Path $ProjectDir 'runtime\server-enabled') -Value (Get-Date).ToString('o') -Encoding Ascii
+    Remove-Item -LiteralPath (Join-Path $ProjectDir 'runtime\settings-restart-required') -Force -ErrorAction SilentlyContinue
 }
 catch {
     $StartupError = $_.Exception.Message
