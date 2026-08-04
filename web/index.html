@@ -4,13 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PalOps</title>
+  <meta name="theme-color" content="#171717">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/palops-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main class="shell">
     <header>
       <div><h1>Palworld サーバー管理</h1><p class="subtitle">このPCで稼働しているサーバーの状態と操作</p></div>
-      <div id="overall" class="status"><i></i><span>確認中</span></div>
+      <div class="header-actions"><button id="installApp" type="button">アプリをインストール</button><button id="themeToggle" type="button" aria-label="表示テーマを切り替える">ライトモード</button><div id="overall" class="status"><i></i><span>確認中</span></div></div>
     </header>
     <section class="summary panel">
       <div class="summary-item"><span>参加人数</span><strong id="players">– / 8</strong></div>
@@ -93,6 +96,7 @@
   </main>
   <dialog id="confirmDialog"><form method="dialog"><h2 id="dialogTitle"></h2><p id="dialogText"></p><div><button value="cancel">キャンセル</button><button id="confirmButton" value="confirm" class="danger">実行する</button></div></form></dialog>
   <dialog id="restoreDialog"><form method="dialog"><h2>バックアップを復元</h2><p id="restoreTarget"></p><p>現在のワールドを退避し、選択した時点へ戻します。サーバー稼働中は参加者への予告とバックアップ後に復元し、完了後に再起動します。</p><label>確認のため「復元」と入力してください<input id="restoreConfirmation" autocomplete="off"></label><div><button value="cancel">キャンセル</button><button id="restoreButton" value="confirm" class="danger" disabled>復元する</button></div></form></dialog>
+  <dialog id="installHelp"><form method="dialog"><h2>PalOpsをアプリとして追加</h2><p>Microsoft EdgeまたはGoogle Chromeでこの画面を開き、アドレスバー右側のインストールアイコンを選択してください。インストール後はスタートメニューとタスクバーから独立したウィンドウで起動できます。</p><div><button value="close">閉じる</button></div></form></dialog>
   <script src="/app.js"></script>
 </body>
 </html>

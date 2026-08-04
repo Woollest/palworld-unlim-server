@@ -459,12 +459,12 @@ try {
             }
 
             $RelativePath = if ($Path -eq '/') { 'index.html' } else { $Path.TrimStart('/') }
-            if ($RelativePath -notin @('index.html', 'app.js', 'styles.css')) {
+            if ($RelativePath -notin @('index.html', 'app.js', 'styles.css', 'manifest.webmanifest', 'palops-icon.svg', 'service-worker.js')) {
                 Write-JsonResponse -Context $Context -StatusCode 404 -Value @{ error = 'Not found.' }
                 continue
             }
             $FilePath = Join-Path $WebRoot $RelativePath
-            $ContentType = switch ([IO.Path]::GetExtension($FilePath)) { '.html' { 'text/html; charset=utf-8' } '.js' { 'text/javascript; charset=utf-8' } '.css' { 'text/css; charset=utf-8' } }
+            $ContentType = switch ([IO.Path]::GetExtension($FilePath)) { '.html' { 'text/html; charset=utf-8' } '.js' { 'text/javascript; charset=utf-8' } '.css' { 'text/css; charset=utf-8' } '.webmanifest' { 'application/manifest+json; charset=utf-8' } '.svg' { 'image/svg+xml' } }
             Write-HttpResponse -Context $Context -StatusCode 200 -ContentType $ContentType -Body ([IO.File]::ReadAllBytes($FilePath))
         }
         catch {

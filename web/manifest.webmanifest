@@ -1,0 +1,13 @@
+{
+  "name": "PalOps — Palworld Server Manager",
+  "short_name": "PalOps",
+  "description": "Local operations console for a Palworld dedicated server.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#171717",
+  "theme_color": "#171717",
+  "icons": [
+    { "src": "/palops-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

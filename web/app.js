@@ -1,7 +1,35 @@
 const $ = id => document.getElementById(id);
+const savedTheme = localStorage.getItem('palops-theme') === 'light' ? 'light' : 'dark';
+document.documentElement.dataset.theme = savedTheme;
 let pendingAction = null;
 let updateAvailable = false;
 let pendingRestore = null;
+let installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault(); installPrompt = event; $('installApp').hidden = false;
+});
+window.addEventListener('appinstalled', () => { installPrompt = null; $('installApp').hidden = true; });
+$('installApp').addEventListener('click', async () => {
+  if (!installPrompt) { $('installHelp').showModal(); return; }
+  await installPrompt.prompt();
+  installPrompt = null; $('installApp').hidden = true;
+});
+if (window.matchMedia('(display-mode: standalone)').matches) $('installApp').hidden = true;
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+
+function renderThemeButton() {
+  const light = document.documentElement.dataset.theme === 'light';
+  $('themeToggle').textContent = light ? 'ダークモード' : 'ライトモード';
+  $('themeToggle').setAttribute('aria-pressed', String(light));
+}
+$('themeToggle').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('palops-theme', next);
+  renderThemeButton();
+});
+renderThemeButton();
 
 const actionLabels = {
   start: { name: '起動', confirm: 'サーバーを起動しますか？', detail: 'PalworldとUnlimを起動し、接続可能になるまで確認します。' },
