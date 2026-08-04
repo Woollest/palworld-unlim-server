@@ -17,7 +17,7 @@ $ActionHistoryPath = Join-Path $RuntimeDir 'dashboard-history.json'
 $IncidentPath = Join-Path $RuntimeDir 'incidents.json'
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
 
-function Get-Incidents { if (-not (Test-Path $IncidentPath)){return @()}; try{return @(Get-Content $IncidentPath -Raw|ConvertFrom-Json|Select-Object -First 100)}catch{return @()} }
+function Get-Incidents { if (-not (Test-Path $IncidentPath)){return @()}; try{$Response=Get-Content $IncidentPath -Raw|ConvertFrom-Json;return @($Response)|Select-Object -First 100}catch{return @()} }
 function Add-Incident { param($Body); $Title=([string]$Body.title).Trim();$Detail=([string]$Body.detail).Trim();if($Title.Length-lt 2-or$Title.Length-gt 100-or$Detail.Length-gt 1000){throw 'Title or detail length is invalid.'};if([string]$Body.severity-notin @('info','warning','critical')){throw 'Invalid severity.'};$Entry=[pscustomobject]@{id=[guid]::NewGuid().ToString('N');createdAt=(Get-Date).ToString('o');severity=[string]$Body.severity;title=$Title;detail=$Detail;status='open'};@($Entry)+@(Get-Incidents)|Select-Object -First 100|ConvertTo-Json -Depth 4|Set-Content $IncidentPath -Encoding UTF8;return $Entry }
 function Get-MigrationInventory { @((Get-ChildItem (Join-Path $ProjectDir 'exports') -Filter 'palops-migration-*.zip' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTime -Descending|Select-Object -First 10)|ForEach-Object{[pscustomobject]@{name=$_.Name;createdAt=$_.LastWriteTime.ToString('o');sizeMb=[math]::Round($_.Length/1MB,1)}}) }
 
@@ -68,7 +68,7 @@ function Get-ActionState {
 
 function Get-ActionHistory {
     if (-not (Test-Path -LiteralPath $ActionHistoryPath)) { return @() }
-    try { return @(Get-Content -LiteralPath $ActionHistoryPath -Raw | ConvertFrom-Json | Select-Object -First 8) }
+    try { $Response = Get-Content -LiteralPath $ActionHistoryPath -Raw | ConvertFrom-Json; return @($Response) | Select-Object -First 8 }
     catch { return @() }
 }
 
@@ -113,7 +113,7 @@ function Test-BackupName {
 function Get-MaintenanceSchedules {
     $SchedulesPath = Join-Path $ProjectDir 'runtime\maintenance-schedules.json'
     if (-not (Test-Path -LiteralPath $SchedulesPath)) { return @() }
-    try { return @(Get-Content -LiteralPath $SchedulesPath -Raw | ConvertFrom-Json | Select-Object -First 20) } catch { return @() }
+    try { $Response = Get-Content -LiteralPath $SchedulesPath -Raw | ConvertFrom-Json; return @($Response) | Select-Object -First 20 } catch { return @() }
 }
 
 function Get-SettingsSchema {

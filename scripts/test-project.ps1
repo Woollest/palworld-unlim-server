@@ -72,9 +72,11 @@ Invoke-TestCase 'PalOps PWA is complete and keeps APIs live' {
 
 Invoke-TestCase 'PalOps operations are serialized and recorded' {
     $Runner = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard-action.ps1') -Raw
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
     if ($Runner -notmatch '\[IO\.File\]::Open\(.+FileShare\]::None') { throw 'Exclusive action locking is missing.' }
     if ($Runner -notmatch 'dashboard-history\.json') { throw 'Operation history persistence is missing.' }
     if ($Runner -notmatch "Set-ActionState -State 'failed'") { throw 'Failed operations are not recorded.' }
+    if ($Dashboard -notmatch '\$Response = Get-Content -LiteralPath \$ActionHistoryPath') { throw 'Action history arrays are not normalized.' }
 }
 
 Invoke-TestCase 'PalOps omits empty positional arguments' {

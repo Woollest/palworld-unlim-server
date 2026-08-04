@@ -43,6 +43,14 @@ Describe 'Palworld Server repository' {
         if ($Runner -notmatch 'dashboard-history\.json') { throw 'Action history is missing.' }
     }
 
+    It 'returns action history as a flat array' {
+        . (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -FunctionsOnly
+        $ActionHistoryPath = Join-Path $TestDrive 'dashboard-history.json'
+        @([pscustomobject]@{name='backup';state='succeeded'},[pscustomobject]@{name='restart';state='failed'}) | ConvertTo-Json | Set-Content $ActionHistoryPath
+        $History = @(Get-ActionHistory)
+        if ($History.Count -ne 2 -or $History[0].name -ne 'backup' -or $History[0].PSObject.Properties.Name -contains 'value') { throw 'Action history is nested.' }
+    }
+
     It 'does not pass an empty positional argument to action scripts' {
         $Runner = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard-action.ps1') -Raw
         if ($Runner -notmatch 'if \(@\(\$ScriptArguments\)\.Count -gt 0\)' -or $Runner -notmatch 'else \{ & \$ScriptPath \}') {
