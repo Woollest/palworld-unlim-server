@@ -72,10 +72,14 @@ Invoke-TestCase 'PalOps PWA is complete and keeps APIs live' {
 
 Invoke-TestCase 'PalOps desktop shell is loopback-only' {
     $Desktop = Get-Content -LiteralPath (Join-Path $ProjectDir 'desktop/src-tauri/src/main.rs') -Raw
+    $DesktopConfig = Get-Content -LiteralPath (Join-Path $ProjectDir 'desktop/src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
     $App = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/app.js') -Raw
     if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/\?desktop=1' -or $Desktop -notmatch 'on_navigation') { throw 'Desktop navigation is not constrained.' }
     if ($Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)' -or $Desktop -notmatch 'port_or_known_default\(\) == Some\(8765\)') { throw 'Desktop shell may navigate outside PalOps.' }
     if ($App -notmatch "get\('desktop'\) === '1'" -or $App -notmatch 'if \(isDesktopShell\).*installApp.*hidden') { throw 'Desktop-only PWA controls are not suppressed.' }
+    if ($Desktop -notmatch 'tauri_plugin_single_instance::init' -or $Desktop -notmatch 'get_webview_window\("main"\)') { throw 'Desktop single-instance focusing is missing.' }
+    if ($Desktop -notmatch 'project-path\.txt' -or $Desktop -notmatch 'pick_folder') { throw 'Installed app cannot remember its PalworldServer folder.' }
+    if (-not $DesktopConfig.bundle.active -or @($DesktopConfig.bundle.targets) -notcontains 'nsis' -or $DesktopConfig.bundle.windows.nsis.installMode -ne 'currentUser') { throw 'Current-user NSIS installer is not configured.' }
 }
 
 Invoke-TestCase 'PalOps operations are serialized and recorded' {

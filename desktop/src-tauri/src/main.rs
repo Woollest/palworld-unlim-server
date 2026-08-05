@@ -1,14 +1,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
-    env,
+    env, fs,
     net::TcpStream,
     path::{Path, PathBuf},
     process::Command,
     thread,
     time::{Duration, Instant},
 };
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -27,18 +27,61 @@ fn find_project_dir() -> Option<PathBuf> {
     {
         return Some(path);
     }
+    if let Some(path) = stored_project_dir().filter(|path| is_project_dir(path)) {
+        return Some(path);
+    }
     let roots = [
         env::current_exe()
             .ok()
             .and_then(|path| path.parent().map(Path::to_path_buf)),
         env::current_dir().ok(),
-        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR"))),
+        env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join("PalworldServer")),
+        env::var_os("USERPROFILE")
+            .map(|home| PathBuf::from(home).join("Documents").join("PalworldServer")),
     ];
     roots.into_iter().flatten().find_map(|root| {
         root.ancestors()
             .find(|path| is_project_dir(path))
             .map(Path::to_path_buf)
     })
+}
+
+fn project_config_file() -> Option<PathBuf> {
+    dirs::data_local_dir().map(|path| path.join("PalOps").join("project-path.txt"))
+}
+
+fn stored_project_dir() -> Option<PathBuf> {
+    let value = fs::read_to_string(project_config_file()?).ok()?;
+    let path = PathBuf::from(value.trim());
+    (!value.trim().is_empty()).then_some(path)
+}
+
+fn remember_project_dir(path: &Path) {
+    let Some(file) = project_config_file() else {
+        return;
+    };
+    if let Some(parent) = file.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(file, path.to_string_lossy().as_bytes());
+}
+
+fn choose_project_dir() -> Option<PathBuf> {
+    let path = rfd::FileDialog::new()
+        .set_title("PalworldServerフォルダーを選択")
+        .pick_folder()?;
+    if is_project_dir(&path) {
+        remember_project_dir(&path);
+        return Some(path);
+    }
+    rfd::MessageDialog::new()
+        .set_title("PalOps")
+        .set_description(
+            "選択したフォルダーに必要な管理ファイルがありません。PalworldServerフォルダーを選択してください。",
+        )
+        .set_level(rfd::MessageLevel::Error)
+        .show();
+    None
 }
 
 fn dashboard_ready() -> bool {
@@ -82,15 +125,28 @@ fn ensure_dashboard(project_dir: &Path) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(|app| {
-            let project_dir = find_project_dir().ok_or("PalworldServerフォルダーを検出できませんでした。EXEをプロジェクト内へ配置するかPALOPS_PROJECT_DIRを設定してください。")?;
+            let project_dir = find_project_dir()
+                .or_else(choose_project_dir)
+                .ok_or("PalworldServerフォルダーが選択されなかったため、PalOpsを終了します。")?;
             ensure_dashboard(&project_dir)?;
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(PALOPS_URL.parse()?))
                 .title("PalOps — Palworld Server Manager")
                 .inner_size(1180.0, 820.0)
                 .min_inner_size(840.0, 620.0)
                 .center()
-                .on_navigation(|url| url.scheme() == "http" && url.host_str() == Some("127.0.0.1") && url.port_or_known_default() == Some(8765))
+                .on_navigation(|url| {
+                    url.scheme() == "http"
+                        && url.host_str() == Some("127.0.0.1")
+                        && url.port_or_known_default() == Some(8765)
+                })
                 .build()?;
             Ok(())
         })

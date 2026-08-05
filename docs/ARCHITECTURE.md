@@ -42,7 +42,7 @@ PalworldServer/
 
 PowerShell remains an implementation and recovery layer, but is no longer the normal operator interface.
 
-The native desktop shell locates an existing project directory, starts the localhost dashboard through the constrained hidden runner when necessary, and permits navigation only to `127.0.0.1:8765`. It does not expose Node.js or arbitrary shell commands to the web UI.
+The native desktop shell locates or prompts for an existing project directory, remembers that selection in the user's local application data, starts the localhost dashboard through the constrained hidden runner when necessary, and permits navigation only to `127.0.0.1:8765`. The current-user NSIS installer creates the normal Windows application registration and Start menu shortcut. A single-instance guard focuses the existing window instead of starting a duplicate. The shell does not expose Node.js or arbitrary shell commands to the web UI.
 
 ## Installed app model
 

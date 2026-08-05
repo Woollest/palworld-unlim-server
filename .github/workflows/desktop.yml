@@ -22,12 +22,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: desktop/src-tauri
-      - name: Build PalOps EXE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build PalOps installer
         shell: pwsh
-        run: cargo build --release --locked --manifest-path desktop/src-tauri/Cargo.toml
-      - name: Upload PalOps EXE
+        working-directory: desktop
+        run: npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis
+      - name: Upload PalOps app and installer
         uses: actions/upload-artifact@v4
         with:
           name: palops-windows-x64
-          path: desktop/src-tauri/target/release/palops.exe
+          path: |
+            desktop/src-tauri/target/release/palops.exe
+            desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
