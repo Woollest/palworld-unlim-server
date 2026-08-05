@@ -408,6 +408,25 @@ async function refreshLogs(){try{const body=await(await fetch('/api/logs',{cache
 $('refreshLogs').addEventListener('click',event=>{event.preventDefault();refreshLogs();});
 document.querySelector('.log-viewer').addEventListener('toggle',event=>{if(event.currentTarget.open)refreshLogs();});
 
+$('refreshPage').addEventListener('click', () => {
+  $('refreshPage').disabled = true;
+  $('refreshPage').textContent = '更新中…';
+  window.location.reload();
+});
+
+const settingsEditor = document.querySelector('.settings-editor');
+const syncSettingsToggle = () => {
+  $('settingsToggle').textContent = settingsEditor.open ? '設定を閉じる' : '設定を開く';
+  $('settingsToggle').setAttribute('aria-expanded', String(settingsEditor.open));
+};
+$('settingsToggle').addEventListener('click', event => {
+  event.preventDefault();
+  event.stopPropagation();
+  settingsEditor.open = !settingsEditor.open;
+  syncSettingsToggle();
+});
+settingsEditor.addEventListener('toggle', syncSettingsToggle);
+
 const defaultMaintenance = new Date(Date.now() + 30 * 60 * 1000);
 defaultMaintenance.setMinutes(Math.ceil(defaultMaintenance.getMinutes() / 5) * 5, 0, 0);
 $('maintenanceRunAt').value = `${defaultMaintenance.getFullYear()}-${String(defaultMaintenance.getMonth() + 1).padStart(2, '0')}-${String(defaultMaintenance.getDate()).padStart(2, '0')}T${String(defaultMaintenance.getHours()).padStart(2, '0')}:${String(defaultMaintenance.getMinutes()).padStart(2, '0')}`;
@@ -419,6 +438,7 @@ refreshMaintenance();
 refreshSettings();
 refreshIncidents();
 refreshMigrations();
+syncSettingsToggle();
 setInterval(refresh, 5000);
 setInterval(refreshPlayerDirectory, 10000);
 setInterval(refreshBackups, 30000);

@@ -13,7 +13,7 @@
   <main class="shell">
     <header>
       <div><h1>Palworld サーバー管理</h1><p class="subtitle">このPCで稼働しているサーバーの状態と操作</p></div>
-      <div class="header-actions"><button id="installApp" type="button">アプリをインストール</button><button id="themeToggle" type="button" aria-label="表示テーマを切り替える">ライトモード</button><div id="overall" class="status"><i></i><span>確認中</span></div></div>
+      <div class="header-actions"><button id="refreshPage" type="button" title="管理画面を最新の状態に更新します">画面を更新</button><button id="installApp" type="button">アプリをインストール</button><button id="themeToggle" type="button" aria-label="表示テーマを切り替える">ライトモード</button><div id="overall" class="status"><i></i><span>確認中</span></div></div>
     </header>
     <section class="summary panel">
       <div class="summary-item"><span>参加人数</span><strong id="players">– / 8</strong></div>
@@ -46,7 +46,7 @@
       </div>
     </section>
     <details class="settings-editor panel">
-      <summary><span><strong>ワールド設定</strong><small id="settingsState">主要項目を安全に編集</small></span><span>開く</span></summary>
+      <summary><span><strong>ワールド設定</strong><small id="settingsState">主要項目を安全に編集</small></span><button id="settingsToggle" type="button" aria-expanded="false">設定を開く</button></summary>
       <form id="settingsForm">
         <div id="settingsGroups"></div>
         <div class="settings-footer"><p id="settingsMessage">変更は保存後の再起動で反映されます。</p><div><button type="submit">設定を保存</button><button type="button" data-action="restart">安全再起動</button></div></div>
