@@ -15,11 +15,62 @@ $RuntimeDir = Join-Path $ProjectDir 'runtime'
 $ActionStatePath = Join-Path $RuntimeDir 'dashboard-action.json'
 $ActionHistoryPath = Join-Path $RuntimeDir 'dashboard-history.json'
 $IncidentPath = Join-Path $RuntimeDir 'incidents.json'
+$PlayerAccessPath = Join-Path $ProjectDir 'logs\player-access.json'
+$PlayerEventsPath = Join-Path $ProjectDir 'logs\player-events.csv'
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
 
 function Get-Incidents { if (-not (Test-Path $IncidentPath)){return @()}; try{$Response=Get-Content $IncidentPath -Raw|ConvertFrom-Json;return @($Response)|Select-Object -First 100}catch{return @()} }
 function Add-Incident { param($Body); $Title=([string]$Body.title).Trim();$Detail=([string]$Body.detail).Trim();if($Title.Length-lt 2-or$Title.Length-gt 100-or$Detail.Length-gt 1000){throw 'Title or detail length is invalid.'};if([string]$Body.severity-notin @('info','warning','critical')){throw 'Invalid severity.'};$Entry=[pscustomobject]@{id=[guid]::NewGuid().ToString('N');createdAt=(Get-Date).ToString('o');severity=[string]$Body.severity;title=$Title;detail=$Detail;status='open'};@($Entry)+@(Get-Incidents)|Select-Object -First 100|ConvertTo-Json -Depth 4|Set-Content $IncidentPath -Encoding UTF8;return $Entry }
 function Get-MigrationInventory { @((Get-ChildItem (Join-Path $ProjectDir 'exports') -Filter 'palops-migration-*.zip' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTime -Descending|Select-Object -First 10)|ForEach-Object{[pscustomobject]@{name=$_.Name;createdAt=$_.LastWriteTime.ToString('o');sizeMb=[math]::Round($_.Length/1MB,1)}}) }
+
+function Get-PlayerAccessDirectory {
+    $Directory = @{}
+    if (Test-Path -LiteralPath $PlayerAccessPath) {
+        try {
+            foreach ($Player in @(Get-Content -LiteralPath $PlayerAccessPath -Raw | ConvertFrom-Json)) {
+                $Directory[[string]$Player.key] = $Player
+            }
+        }
+        catch {}
+    }
+    elseif (Test-Path -LiteralPath $PlayerEventsPath) {
+        try {
+            foreach ($Event in @(Import-Csv -LiteralPath $PlayerEventsPath)) {
+                $Key = if ($Event.userId) { "user:$($Event.userId)" } elseif ($Event.accountName) { "account:$($Event.accountName)" } else { "name:$($Event.name)" }
+                if (-not $Directory.ContainsKey($Key)) {
+                    $Directory[$Key] = [pscustomobject]@{ key = $Key; name = [string]$Event.name; accountName = [string]$Event.accountName; userId = [string]$Event.userId; firstSeenAt = [string]$Event.timestamp; lastSeenAt = [string]$Event.timestamp; joinCount = 0; online = $false }
+                }
+                $Record = $Directory[$Key]
+                if ([string]$Event.timestamp -lt [string]$Record.firstSeenAt) { $Record.firstSeenAt = [string]$Event.timestamp }
+                if ([string]$Event.timestamp -gt [string]$Record.lastSeenAt) { $Record.lastSeenAt = [string]$Event.timestamp }
+                if ([string]$Event.event -eq 'JOIN') { $Record.joinCount = [int]$Record.joinCount + 1 }
+            }
+        }
+        catch {}
+    }
+
+    foreach ($Record in $Directory.Values) { $Record.online = $false }
+    try {
+        $ObservedAt = (Get-Date).ToString('o')
+        foreach ($Player in @((Invoke-PalworldApi -Method Get -Path 'players').players)) {
+            $Key = if ($Player.userId) { "user:$($Player.userId)" } elseif ($Player.accountName) { "account:$($Player.accountName)" } else { "name:$($Player.name)" }
+            if (-not $Directory.ContainsKey($Key)) {
+                $Directory[$Key] = [pscustomobject]@{ key = $Key; name = [string]$Player.name; accountName = [string]$Player.accountName; userId = [string]$Player.userId; firstSeenAt = $ObservedAt; lastSeenAt = $ObservedAt; joinCount = 0; online = $true }
+            }
+            $Record = $Directory[$Key]
+            $Record.name = [string]$Player.name
+            $Record.accountName = [string]$Player.accountName
+            $Record.lastSeenAt = $ObservedAt
+            $Record.online = $true
+        }
+    }
+    catch {}
+
+    return @($Directory.Values |
+        Sort-Object @{ Expression = { [bool]$_.online }; Descending = $true }, @{ Expression = { [string]$_.lastSeenAt }; Descending = $true } |
+        Select-Object -First 200 |
+        ForEach-Object { [pscustomobject]@{ name = [string]$_.name; accountName = [string]$_.accountName; firstSeenAt = [string]$_.firstSeenAt; lastSeenAt = [string]$_.lastSeenAt; joinCount = [int]$_.joinCount; online = [bool]$_.online } })
+}
 
 function Write-HttpResponse {
     param($Context, [int]$StatusCode, [string]$ContentType, [byte[]]$Body)
@@ -377,6 +428,11 @@ try {
             $Path = $Context.Request.Url.AbsolutePath
             if ($Context.Request.HttpMethod -eq 'GET' -and $Path -eq '/api/status') {
                 Write-JsonResponse -Context $Context -StatusCode 200 -Value (Get-DashboardStatus)
+                continue
+            }
+            if ($Context.Request.HttpMethod -eq 'GET' -and $Path -eq '/api/players') {
+                $Players = @(Get-PlayerAccessDirectory)
+                Write-JsonResponse -Context $Context -StatusCode 200 -Value @{ players = $Players; total = $Players.Count; online = @($Players | Where-Object online).Count }
                 continue
             }
             if ($Context.Request.HttpMethod -eq 'GET' -and $Path -eq '/api/backups') {

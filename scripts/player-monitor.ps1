@@ -5,9 +5,49 @@ Set-Location $ProjectDir
 
 $StatePath = Join-Path $ProjectDir 'runtime\player-monitor-state.json'
 $EventsPath = Join-Path $ProjectDir 'logs\player-events.csv'
+$AccessPath = Join-Path $ProjectDir 'logs\player-access.json'
 $Interval = [int](Get-ProjectSetting -Name 'MONITOR_INTERVAL_SECONDS' -Default '30')
 New-Item -ItemType Directory -Force -Path (Join-Path $ProjectDir 'logs') | Out-Null
 if (-not (Test-Path -LiteralPath $EventsPath)) { 'timestamp,event,name,accountName,userId' | Set-Content -LiteralPath $EventsPath -Encoding UTF8 }
+
+function Get-PlayerIdentityKey {
+    param($Player)
+    if (-not [string]::IsNullOrWhiteSpace([string]$Player.userId)) { return "user:$([string]$Player.userId)" }
+    if (-not [string]::IsNullOrWhiteSpace([string]$Player.accountName)) { return "account:$([string]$Player.accountName)" }
+    return "name:$([string]$Player.name)"
+}
+
+$Access = @{}
+if (Test-Path -LiteralPath $AccessPath) {
+    try {
+        foreach ($Player in @(Get-Content -LiteralPath $AccessPath -Raw | ConvertFrom-Json)) {
+            $Access[[string]$Player.key] = $Player
+        }
+    }
+    catch { Write-Warning "Player access history could not be loaded: $($_.Exception.Message)" }
+}
+elseif (Test-Path -LiteralPath $EventsPath) {
+    try {
+        foreach ($Event in @(Import-Csv -LiteralPath $EventsPath)) {
+            $Key = Get-PlayerIdentityKey $Event
+            if (-not $Access.ContainsKey($Key)) {
+                $Access[$Key] = [pscustomobject]@{ key = $Key; name = [string]$Event.name; accountName = [string]$Event.accountName; userId = [string]$Event.userId; firstSeenAt = [string]$Event.timestamp; lastSeenAt = [string]$Event.timestamp; joinCount = 0; online = $false }
+            }
+            $Record = $Access[$Key]
+            if ([string]$Event.timestamp -lt [string]$Record.firstSeenAt) { $Record.firstSeenAt = [string]$Event.timestamp }
+            if ([string]$Event.timestamp -gt [string]$Record.lastSeenAt) { $Record.lastSeenAt = [string]$Event.timestamp }
+            if ([string]$Event.event -eq 'JOIN') { $Record.joinCount = [int]$Record.joinCount + 1 }
+        }
+    }
+    catch { Write-Warning "Player events could not seed access history: $($_.Exception.Message)" }
+}
+
+function Save-PlayerAccessDirectory {
+    $TemporaryPath = "$AccessPath.tmp"
+    $Records = @($Access.Values | Sort-Object @{ Expression = { [string]$_.lastSeenAt }; Descending = $true })
+    ConvertTo-Json -InputObject $Records -Depth 5 | Set-Content -LiteralPath $TemporaryPath -Encoding UTF8
+    Move-Item -LiteralPath $TemporaryPath -Destination $AccessPath -Force
+}
 
 $Previous = @{}
 if (Test-Path -LiteralPath $StatePath) {
@@ -73,6 +113,28 @@ while ($true) {
                 [pscustomobject]@{ timestamp = (Get-Date).ToString('o'); event = 'LEAVE'; name = $Previous[$Id].name; accountName = $Previous[$Id].accountName; userId = $Id } | Export-Csv -LiteralPath $EventsPath -Append -NoTypeInformation -Encoding UTF8
             }
         }
+        $ObservedAt = (Get-Date).ToString('o')
+        foreach ($Record in $Access.Values) { $Record.online = $false }
+        foreach ($Player in $Players) {
+            $Key = Get-PlayerIdentityKey $Player
+            if (-not $Access.ContainsKey($Key)) {
+                $Access[$Key] = [pscustomobject]@{ key = $Key; name = [string]$Player.name; accountName = [string]$Player.accountName; userId = [string]$Player.userId; firstSeenAt = $ObservedAt; lastSeenAt = $ObservedAt; joinCount = 0; online = $true }
+            }
+            $Record = $Access[$Key]
+            $Record.name = [string]$Player.name
+            $Record.accountName = [string]$Player.accountName
+            $Record.userId = [string]$Player.userId
+            $Record.lastSeenAt = $ObservedAt
+            $Record.online = $true
+            if (-not $Previous.ContainsKey($Player.userId)) { $Record.joinCount = [int]$Record.joinCount + 1 }
+        }
+        foreach ($Id in $Previous.Keys) {
+            if (-not $Current.ContainsKey($Id)) {
+                $Key = Get-PlayerIdentityKey $Previous[$Id]
+                if ($Access.ContainsKey($Key)) { $Access[$Key].lastSeenAt = $ObservedAt; $Access[$Key].online = $false }
+            }
+        }
+        Save-PlayerAccessDirectory
         if ($Current.Count -ne $Previous.Count -or -not (Test-Path -LiteralPath $StatePath)) {
             Invoke-DiscordStatusSafe -Status Online -Detail 'Palworld and Unlim are running.' -PlayerCount $Current.Count
         }

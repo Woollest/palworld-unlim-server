@@ -102,6 +102,33 @@ function renderHistory(history) {
   }));
 }
 
+function renderPlayerDirectory(players) {
+  $('playerDirectoryCount').textContent = `${players.length}人 · オンライン ${players.filter(player => player.online).length}人`;
+  const container = $('playerDirectory');
+  if (!players.length) { container.innerHTML = '<p class="empty">参加履歴はまだありません。</p>'; return; }
+  container.replaceChildren(...players.map(player => {
+    const row = document.createElement('div'); row.className = 'player-row';
+    const identity = document.createElement('div'); identity.className = 'player-identity';
+    const name = document.createElement('strong'); name.textContent = player.name || player.accountName || '名前不明';
+    identity.append(name);
+    if (player.accountName && player.accountName !== player.name) { const account = document.createElement('span'); account.textContent = player.accountName; identity.append(account); }
+    const state = document.createElement('span'); state.className = `player-state ${player.online ? 'online' : ''}`; state.textContent = player.online ? 'オンライン' : 'オフライン';
+    const lastSeen = document.createElement('time'); lastSeen.textContent = player.online ? `確認 ${date(player.lastSeenAt)}` : date(player.lastSeenAt);
+    const joins = document.createElement('span'); joins.className = 'player-joins'; joins.textContent = `${player.joinCount ?? 0}回`;
+    row.append(identity, state, lastSeen, joins);
+    return row;
+  }));
+}
+
+async function refreshPlayerDirectory() {
+  try {
+    const response = await fetch('/api/players', { cache: 'no-store' });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error);
+    renderPlayerDirectory(body.players ?? []);
+  } catch { $('playerDirectoryCount').textContent = '履歴を取得できません'; }
+}
+
 function renderBackups(backups) {
   $('backupCount').textContent = `${backups.length}件`;
   const container = $('backupList');
@@ -386,11 +413,13 @@ defaultMaintenance.setMinutes(Math.ceil(defaultMaintenance.getMinutes() / 5) * 5
 $('maintenanceRunAt').value = `${defaultMaintenance.getFullYear()}-${String(defaultMaintenance.getMonth() + 1).padStart(2, '0')}-${String(defaultMaintenance.getDate()).padStart(2, '0')}T${String(defaultMaintenance.getHours()).padStart(2, '0')}:${String(defaultMaintenance.getMinutes()).padStart(2, '0')}`;
 
 refresh();
+refreshPlayerDirectory();
 refreshBackups();
 refreshMaintenance();
 refreshSettings();
 refreshIncidents();
 refreshMigrations();
 setInterval(refresh, 5000);
+setInterval(refreshPlayerDirectory, 10000);
 setInterval(refreshBackups, 30000);
 setInterval(refreshMaintenance, 30000);

@@ -170,4 +170,15 @@ Describe 'Palworld Server repository' {
         if (-not (Test-AdministratorPermissions -RoleIds @('admin-role') -GuildRoles $Roles -GuildId 'guild')) { throw 'Administrator role was rejected.' }
         if (Test-AdministratorPermissions -RoleIds @('member-role') -GuildRoles $Roles -GuildId 'guild') { throw 'Non-administrator role was accepted.' }
     }
+
+    It 'records and displays player access history locally' {
+        $Monitor = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/player-monitor.ps1') -Raw
+        $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw
+        $Page = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/index.html') -Raw
+        $App = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/app.js') -Raw
+        if ($Monitor -notmatch 'player-access\.json' -or $Monitor -notmatch 'lastSeenAt' -or $Monitor -notmatch 'Save-PlayerAccessDirectory') { throw 'Persistent player access tracking is incomplete.' }
+        if ($Dashboard -notmatch "'/api/players'" -or $Dashboard -notmatch 'Get-PlayerAccessDirectory') { throw 'Player directory API is missing.' }
+        if ($Page -notmatch 'id="playerDirectory"' -or $App -notmatch "fetch\('/api/players'") { throw 'Player directory UI is missing.' }
+        if ($App -match 'innerHTML\s*=.*player\.') { throw 'Player-provided values may be rendered as HTML.' }
+    }
 }

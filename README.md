@@ -71,6 +71,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 PalOpsで利用できる機能：
 
 - Palworld・Unlim・参加人数・FPS・ディスク容量の確認
+- 参加者一覧、オンライン状態、最終アクセス時刻、参加回数の確認
 - 起動、安全停止、安全再起動、バックアップ、更新、復元
 - メンテナンス予約とゲーム内・Discord事前通知
 - 24時間のCPU・メモリ・FPS推移と状態診断
@@ -139,6 +140,7 @@ DiscordのAdministrator権限を持つユーザーは、2分で失効する確�
 | 復元・更新前の退避データ | `recovery/` |
 | サーバー・Unlim・自動起動ログ | `logs/` |
 | 参加・退出履歴 | `logs/player-events.csv` |
+| プレイヤー別の最終アクセス | `logs/player-access.json` |
 | ローカル操作状態 | `runtime/` |
 | 秘密情報を除いた移行ZIP | `exports/` |
 
@@ -238,6 +240,7 @@ git push origin v1.0.0
 - Palworld管理API：`127.0.0.1:8212`のみ
 - Unlim公開：ゲーム用UDPポートのみ
 - Git対象外：`.env`、Discordトークン、管理パスワード、ワールド、バックアップ、ログ、実行状態
+- プレイヤー履歴：このPCの`logs/`内だけに保存し、DiscordやGitHubへ送信しない
 
 脆弱性の報告方法は[SECURITY.md](SECURITY.md)を参照してください。
 

@@ -172,6 +172,17 @@ Invoke-TestCase 'PalOps Discord commands are permissioned and confirmed' {
     if ($Template -notmatch 'DISCORD_COMMAND_CHANNEL_ID=' -or $Template -notmatch 'DISCORD_COMMAND_PREFIX=') { throw 'Discord command configuration is missing.' }
 }
 
+Invoke-TestCase 'PalOps records and displays player access history locally' {
+    $Monitor = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/player-monitor.ps1') -Raw
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    $Page = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/index.html') -Raw
+    $App = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/app.js') -Raw
+    if ($Monitor -notmatch 'player-access\.json' -or $Monitor -notmatch 'lastSeenAt' -or $Monitor -notmatch 'Save-PlayerAccessDirectory') { throw 'Persistent player access tracking is incomplete.' }
+    if ($Dashboard -notmatch "'/api/players'" -or $Dashboard -notmatch 'Get-PlayerAccessDirectory') { throw 'Player directory API is missing.' }
+    if ($Page -notmatch 'id="playerDirectory"' -or $App -notmatch "fetch\('/api/players'") { throw 'Player directory UI is missing.' }
+    if ($App -match 'innerHTML\s*=.*player\.') { throw 'Player-provided values may be rendered as HTML.' }
+}
+
 Invoke-TestCase 'Git excludes secrets and generated data' {
     if (-not (Test-Path -LiteralPath (Join-Path $ProjectDir '.git'))) { throw 'Local Git repository is not initialized.' }
     foreach ($Path in @('.env', 'config/discord.env', 'config/admin.env', 'data/Saved', 'runtime/state.tmp', 'backups/test.zip', 'logs/test.log', 'recovery/test.tmp', 'reports/latest-test-results.json')) {

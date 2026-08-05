@@ -54,6 +54,8 @@ The same PalOps UI can be opened in a browser through `Open-Dashboard.cmd` when 
 
 Docker mounts `data/Saved` into `/pal/Package/Pal/Saved`. Palworld's management REST API is bound only to `127.0.0.1:8212`; PalOps is bound only to `127.0.0.1:8765`; Unlim publishes only the game UDP port. PalOps invokes constrained PowerShell operations for backups, monitoring, Discord updates and safe lifecycle control.
 
+The player monitor keeps the append-only join/leave audit trail in `logs/player-events.csv` and a derived local player directory in `logs/player-access.json`. The directory stores the latest observed display name, account name, first and last observation time, join count and current online state. PalOps exposes it only through the loopback `/api/players` endpoint; it is excluded from Git and Discord output.
+
 ## Repository boundary
 
 Only code, documentation and example configuration belong in source control. World data, credentials, runtime state, backups, recovery copies and logs are excluded by `.gitignore`.
