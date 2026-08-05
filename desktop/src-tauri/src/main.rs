@@ -13,7 +13,7 @@ use tauri::{WebviewUrl, WebviewWindowBuilder};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-const PALOPS_URL: &str = "http://127.0.0.1:8765/";
+const PALOPS_URL: &str = "http://127.0.0.1:8765/?desktop=1";
 
 fn is_project_dir(path: &Path) -> bool {
     path.join("scripts/dashboard.ps1").is_file()

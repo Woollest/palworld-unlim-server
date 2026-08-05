@@ -5,9 +5,14 @@ let pendingAction = null;
 let updateAvailable = false;
 let pendingRestore = null;
 let installPrompt = null;
+const isDesktopShell = new URLSearchParams(window.location.search).get('desktop') === '1';
+
+if (isDesktopShell) $('installApp').hidden = true;
 
 window.addEventListener('beforeinstallprompt', event => {
-  event.preventDefault(); installPrompt = event; $('installApp').hidden = false;
+  event.preventDefault();
+  if (isDesktopShell) return;
+  installPrompt = event; $('installApp').hidden = false;
 });
 window.addEventListener('appinstalled', () => { installPrompt = null; $('installApp').hidden = true; });
 $('installApp').addEventListener('click', async () => {
@@ -16,7 +21,7 @@ $('installApp').addEventListener('click', async () => {
   installPrompt = null; $('installApp').hidden = true;
 });
 if (window.matchMedia('(display-mode: standalone)').matches) $('installApp').hidden = true;
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+if (!isDesktopShell && 'serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(() => {});
 
 function renderThemeButton() {
   const light = document.documentElement.dataset.theme === 'light';

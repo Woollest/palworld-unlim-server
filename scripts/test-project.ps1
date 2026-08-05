@@ -72,8 +72,10 @@ Invoke-TestCase 'PalOps PWA is complete and keeps APIs live' {
 
 Invoke-TestCase 'PalOps desktop shell is loopback-only' {
     $Desktop = Get-Content -LiteralPath (Join-Path $ProjectDir 'desktop/src-tauri/src/main.rs') -Raw
-    if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/' -or $Desktop -notmatch 'on_navigation') { throw 'Desktop navigation is not constrained.' }
+    $App = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/app.js') -Raw
+    if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/\?desktop=1' -or $Desktop -notmatch 'on_navigation') { throw 'Desktop navigation is not constrained.' }
     if ($Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)' -or $Desktop -notmatch 'port_or_known_default\(\) == Some\(8765\)') { throw 'Desktop shell may navigate outside PalOps.' }
+    if ($App -notmatch "get\('desktop'\) === '1'" -or $App -notmatch 'if \(isDesktopShell\).*installApp.*hidden') { throw 'Desktop-only PWA controls are not suppressed.' }
 }
 
 Invoke-TestCase 'PalOps operations are serialized and recorded' {

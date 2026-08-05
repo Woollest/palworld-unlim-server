@@ -38,7 +38,9 @@ Describe 'Palworld Server repository' {
 
     It 'constrains the desktop shell to local PalOps' {
         $Desktop = Get-Content -LiteralPath (Join-Path $ProjectRoot 'desktop/src-tauri/src/main.rs') -Raw
-        if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/' -or $Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)') { throw 'Desktop navigation is not loopback-only.' }
+        $App = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/app.js') -Raw
+        if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/\?desktop=1' -or $Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)') { throw 'Desktop navigation is not loopback-only.' }
+        if ($App -notmatch "get\('desktop'\) === '1'" -or $App -notmatch 'if \(isDesktopShell\).*installApp.*hidden') { throw 'Desktop-only PWA controls are not suppressed.' }
     }
 
 
