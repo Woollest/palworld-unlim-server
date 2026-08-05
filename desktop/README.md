@@ -22,4 +22,4 @@ npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis
 Pop-Location
 ```
 
-二重起動時は新しいプロセスを終了し、既存のPalOpsウィンドウを前面へ戻します。アプリアイコンも組み込み済みです。Windowsコード署名と署名付き自動更新は、証明書と更新署名鍵を用意した後に有効化します。
+二重起動時は新しいプロセスを終了し、既存のPalOpsウィンドウを前面へ戻します。アプリアイコンも組み込み済みです。リリース版は起動時にGitHub Releaseを確認し、利用者の同意後に署名を検証して更新します。リリース管理は[Desktop release](../docs/DESKTOP_RELEASE.md)を参照してください。

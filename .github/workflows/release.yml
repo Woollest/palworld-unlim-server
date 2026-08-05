@@ -38,3 +38,73 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+
+  desktop-release:
+    needs: release
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate desktop release configuration
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw 'TAURI_SIGNING_PRIVATE_KEY repository secret is required.'
+          }
+          $config = Get-Content desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          if ("v$($config.version)" -ne '${{ github.ref_name }}') {
+            throw "Desktop version $($config.version) does not match tag ${{ github.ref_name }}."
+          }
+
+      - name: Build signed updater installer
+        shell: pwsh
+        working-directory: desktop
+        run: npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis --config src-tauri/tauri.release.conf.json
+
+      - name: Create updater metadata
+        shell: pwsh
+        run: |
+          $config = Get-Content desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $installers = @(Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*-setup.exe -File)
+          if ($installers.Count -ne 1) { throw "Expected one NSIS installer, found $($installers.Count)." }
+          $installer = $installers[0]
+          $signaturePath = "$($installer.FullName).sig"
+          if (-not (Test-Path -LiteralPath $signaturePath)) { throw 'Updater signature was not generated.' }
+          $metadata = [ordered]@{
+            version = $config.version
+            notes = "PalOps $($config.version)"
+            pub_date = (Get-Date).ToUniversalTime().ToString('o')
+            platforms = [ordered]@{
+              'windows-x86_64' = [ordered]@{
+                signature = (Get-Content -LiteralPath $signaturePath -Raw).Trim()
+                url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$($installer.Name)"
+              }
+            }
+          }
+          $metadata | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath latest.json -Encoding utf8
+
+      - name: Upload desktop installer and updater metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*-setup.exe -File)
+          if ($installers.Count -ne 1) { throw "Expected one NSIS installer, found $($installers.Count)." }
+          $installer = $installers[0]
+          gh release upload '${{ github.ref_name }}' $installer.FullName "$($installer.FullName).sig" latest.json --clobber

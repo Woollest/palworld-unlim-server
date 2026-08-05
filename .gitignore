@@ -13,6 +13,7 @@ reports/
 exports/
 dist/
 desktop/src-tauri/target/
+*.key
 private/
 
 # Local editor and operating-system files

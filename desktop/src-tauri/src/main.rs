@@ -9,6 +9,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+#[cfg(not(debug_assertions))]
+use tauri_plugin_updater::UpdaterExt;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -123,6 +125,37 @@ fn ensure_dashboard(project_dir: &Path) -> Result<(), String> {
     )
 }
 
+#[cfg(not(debug_assertions))]
+fn check_for_updates(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let result = async {
+            let Some(update) = app.updater()?.check().await? else {
+                return Ok::<(), tauri_plugin_updater::Error>(());
+            };
+            let accepted = rfd::MessageDialog::new()
+                .set_title("PalOpsアップデート")
+                .set_description(format!(
+                    "PalOps {} を利用できます。今すぐ更新しますか？",
+                    update.version
+                ))
+                .set_buttons(rfd::MessageButtons::YesNo)
+                .show();
+            if accepted == rfd::MessageDialogResult::Yes {
+                update.download_and_install(|_, _| {}, || {}).await?;
+            }
+            Ok(())
+        }
+        .await;
+        if let Err(error) = result {
+            rfd::MessageDialog::new()
+                .set_title("PalOpsアップデート")
+                .set_description(format!("更新を確認または適用できませんでした。\n{error}"))
+                .set_level(rfd::MessageLevel::Error)
+                .show();
+        }
+    });
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -132,6 +165,7 @@ fn main() {
                 let _ = window.set_focus();
             }
         }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let project_dir = find_project_dir()
                 .or_else(choose_project_dir)
@@ -148,6 +182,8 @@ fn main() {
                         && url.port_or_known_default() == Some(8765)
                 })
                 .build()?;
+            #[cfg(not(debug_assertions))]
+            check_for_updates(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

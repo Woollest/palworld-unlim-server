@@ -1,6 +1,6 @@
 [package]
 name = "palops"
-version = "0.2.0"
+version = "1.2.0"
 description = "Native Windows shell for the local PalOps server manager"
 authors = ["Woollest"]
 edition = "2021"
@@ -11,8 +11,10 @@ tauri-build = { version = "2.6.3", features = [] }
 [dependencies]
 dirs = "6.0.0"
 rfd = "0.17.2"
+serde_json = "1.0"
 tauri = { version = "2.11.5", features = [] }
 tauri-plugin-single-instance = "2.4.3"
+tauri-plugin-updater = "2.10.1"
 
 [profile.release]
 strip = true

@@ -4,7 +4,7 @@ Describe 'Palworld Server repository' {
     }
 
     It 'contains the required public entry points' {
-        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/src/main.rs', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml', '.github/workflows/desktop.yml')) {
+        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/src/main.rs', 'desktop/src-tauri/tauri.release.conf.json', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml', '.github/workflows/desktop.yml', '.github/workflows/release.yml')) {
             if (-not (Test-Path (Join-Path $ProjectRoot $Path))) { throw "Missing: $Path" }
         }
     }
@@ -45,6 +45,11 @@ Describe 'Palworld Server repository' {
         if ($Desktop -notmatch 'tauri_plugin_single_instance::init' -or $Desktop -notmatch 'get_webview_window\("main"\)') { throw 'Desktop single-instance focusing is missing.' }
         if ($Desktop -notmatch 'project-path\.txt' -or $Desktop -notmatch 'pick_folder') { throw 'Installed app cannot remember its PalworldServer folder.' }
         if (-not $DesktopConfig.bundle.active -or @($DesktopConfig.bundle.targets) -notcontains 'nsis' -or $DesktopConfig.bundle.windows.nsis.installMode -ne 'currentUser') { throw 'Current-user NSIS installer is not configured.' }
+        if ($Desktop -notmatch 'tauri_plugin_updater' -or $Desktop -notmatch 'download_and_install') { throw 'Signed desktop updater is not implemented.' }
+        if ($DesktopConfig.plugins.updater.endpoints -notcontains 'https://github.com/Woollest/palworld-unlim-server/releases/latest/download/latest.json') { throw 'Desktop updater endpoint is invalid.' }
+        if ([string]::IsNullOrWhiteSpace($DesktopConfig.plugins.updater.pubkey)) { throw 'Desktop updater public key is missing.' }
+        $Release = Get-Content -LiteralPath (Join-Path $ProjectRoot '.github/workflows/release.yml') -Raw
+        if ($Release -notmatch 'TAURI_SIGNING_PRIVATE_KEY' -or $Release -notmatch 'latest\.json' -or $Release -notmatch 'desktop-release') { throw 'Desktop updater release automation is incomplete.' }
     }
 
 
