@@ -4,13 +4,13 @@
 
 ```text
 PalworldServer/
-├── Open-Dashboard.cmd           # Primary operator entry point
-├── Open-Server-Manager.cmd      # Compatibility alias to PalOps
-├── Manage-Server.ps1            # PalOps launcher; -Legacy enables recovery menu
+├── Open-Dashboard.cmd           # Browser-based recovery entry point
+├── Open-Server-Manager.cmd      # Compatibility recovery alias
+├── Manage-Server.ps1            # Recovery launcher; -Legacy enables recovery menu
 ├── compose.yaml                 # Palworld container definition
 ├── .env.example                 # Public server configuration template
-├── web/                         # PalOps UI, PWA manifest, service worker and icon
-├── desktop/                     # Tauri/WebView2 native Windows shell
+├── desktop/                     # Primary Tauri/WebView2 Windows application
+├── web/                         # Shared PalOps UI and browser fallback assets
 ├── config/
 │   ├── PalWorldSettings.ini.example
 │   ├── discord.env.example      # Public Discord configuration template
@@ -34,19 +34,21 @@ PalworldServer/
 
 ## Management layers
 
-1. `web/` is the operator-facing PalOps interface.
-2. `scripts/dashboard.ps1` exposes a localhost-only HTTP API and validates every request.
-3. `scripts/dashboard-action.ps1` serializes long-running operations and records their result.
-4. Dedicated scripts perform backup, restore, update, monitoring and Discord integration.
-5. Docker runs the Palworld process; Unlim remains a host-side process for UDP connectivity.
+1. The installed PalOps EXE is the normal operator entry point.
+2. `desktop/` provides the native lifecycle, single-instance and signed-update layer.
+3. `web/` provides the shared operator interface rendered inside the EXE.
+4. `scripts/dashboard.ps1` exposes a localhost-only HTTP API and validates every request.
+5. `scripts/dashboard-action.ps1` serializes long-running operations and records their result.
+6. Dedicated scripts perform backup, restore, update, monitoring and Discord integration.
+7. Docker runs the Palworld process; Unlim remains a host-side process for UDP connectivity.
 
 PowerShell remains an implementation and recovery layer, but is no longer the normal operator interface.
 
 The native desktop shell locates or prompts for an existing project directory, remembers that selection in the user's local application data, starts the localhost dashboard through the constrained hidden runner when necessary, and permits navigation only to `127.0.0.1:8765`. The current-user NSIS installer creates the normal Windows application registration and Start menu shortcut. A single-instance guard focuses the existing window instead of starting a duplicate. The shell does not expose Node.js or arbitrary shell commands to the web UI.
 
-## Installed app model
+## Browser recovery model
 
-PalOps is an installable progressive web app served from localhost. The manifest launches it in a standalone window. The service worker uses network-first caching only for the static application shell; `/api/` requests are never intercepted, so status and administrative operations always use live local state. The application does not expose PalOps beyond `127.0.0.1`.
+The same PalOps UI can be opened in a browser through `Open-Dashboard.cmd` when the native application cannot start. It remains an installable progressive web app for backward compatibility, but it is not the documented normal operating path. The service worker uses network-first caching only for the static application shell; `/api/` requests are never intercepted, so status and administrative operations always use live local state. Neither entry point exposes PalOps beyond `127.0.0.1`.
 
 ## Data flow
 

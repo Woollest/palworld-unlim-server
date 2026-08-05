@@ -1,6 +1,6 @@
 # PalOps — Palworld Dedicated Server + Unlim
 
-Windows、Docker Desktop、Palworld公式Dockerイメージ、Unlim CLIを組み合わせた、ローカルWeb管理・バックアップ・監視・Discord通知・自動復旧付きの非公式Dedicated Server運用プロジェクトです。
+Windows、Docker Desktop、Palworld公式Dockerイメージ、Unlim CLIを組み合わせた、Windowsアプリ「PalOps」によるバックアップ・監視・Discord通知・自動復旧付きの非公式Dedicated Server運用プロジェクトです。
 
 > [!IMPORTANT]
 > 本プロジェクトはPocketpair, Inc.およびUnlimの公式プロジェクトではありません。Palworldおよび関連名称は各権利者に帰属します。
@@ -9,8 +9,8 @@ Windows、Docker Desktop、Palworld公式Dockerイメージ、Unlim CLIを組み
 
 | 利用者 | 最初に読む場所 | 主な操作 |
 |---|---|---|
-| 初めてサーバーを構築する人 | [導入担当者向け](#導入担当者向け) | 初期設定、初回起動、Discord設定 |
-| 普段サーバーを管理する人 | [運用管理者向け](#運用管理者向け) | PalOpsから起動、停止、バックアップ、更新 |
+| 初めてサーバーを構築する人 | [導入担当者向け](#導入担当者向け) | 初期設定、PalOps EXEの導入、初回起動 |
+| 普段サーバーを管理する人 | [運用管理者向け](#運用管理者向け) | PalOps EXEから起動、停止、バックアップ、更新 |
 | ゲームへ参加する人 | [参加者向け](#参加者向け) | Unlim接続、Palworld参加 |
 | コードを変更・公開する人 | [開発・保守担当者向け](#開発保守担当者向け) | テスト、CI、リリース、緊急復旧 |
 
@@ -33,7 +33,6 @@ git clone https://github.com/Woollest/palworld-unlim-server.git PalworldServer
 cd PalworldServer
 Set-ExecutionPolicy -Scope Process Bypass
 ./scripts/setup-project.ps1
-./scripts/start.ps1
 ```
 
 初回セットアップで次を生成します。
@@ -45,19 +44,29 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 これらはGit管理対象外です。外部公開前に内容を確認してください。
 
+### PalOps EXEをインストール
+
+1. [最新のGitHub Release](https://github.com/Woollest/palworld-unlim-server/releases/latest)から`PalOps_*_x64-setup.exe`をダウンロードする
+2. インストーラーを実行する
+3. スタートメニューから「PalOps」を起動する
+4. 初回だけ、先ほどcloneした`PalworldServer`フォルダーを選択する
+
+現在はWindowsのコード署名証明書を使用していないため、SmartScreenに「不明な発行元」と表示される場合があります。GitHubのこのリポジトリにある公式Releaseから取得したファイルであることを確認して実行してください。
+
 ### 初期設定の仕上げ
 
-1. `Open-Dashboard.cmd`でPalOpsを開く
+1. スタートメニューからPalOpsを開く
 2. ワールド設定と最大人数を確認する
-3. PalOpsから最初のバックアップを作成する
-4. 必要なら[Discord Bot設定](docs/DISCORD-BOT-SETUP.md)を行う
-5. `./scripts/setup-auto-start.ps1`と`./scripts/setup-maintenance-tasks.ps1`でWindowsタスクを登録する
+3. PalOpsの「起動」でPalworldとUnlimを起動する
+4. PalOpsから最初のバックアップを作成する
+5. 必要なら[Discord Bot設定](docs/DISCORD-BOT-SETUP.md)を行う
+6. `./scripts/setup-auto-start.ps1`と`./scripts/setup-maintenance-tasks.ps1`でWindowsタスクを登録する
 
 ## 運用管理者向け
 
-### 日常運用はPalOpsから
+### 日常運用はPalOps EXEから
 
-`Open-Dashboard.cmd`をダブルクリックしてください。互換用の`Open-Server-Manager.cmd`も同じ画面を開きます。
+スタートメニューで「PalOps」を検索して起動してください。ブラウザやPowerShellを開く必要はありません。PalOpsのウィンドウを閉じてもPalworld、Unlim、バックグラウンド監視は停止しません。サーバーを終了するときは、PalOps内の「安全停止」を使用してください。
 
 PalOpsで利用できる機能：
 
@@ -70,13 +79,15 @@ PalOpsで利用できる機能：
 
 PalOpsは`http://127.0.0.1:8765`だけで待ち受けます。LANやインターネットには公開されません。
 
-### Windowsアプリとして使う
+### EXE版の動作
 
-PalOps右上の「アプリをインストール」を選択します。Microsoft EdgeまたはGoogle Chromeでインストールすると、スタートメニューやタスクバーから独立したウィンドウで起動できます。
-
-ネイティブ版はTauri 2とWindows WebView2を使用し、既存のPalOpsを自動起動して専用ウィンドウへ表示します。NSISインストーラーから現在のユーザーへ導入でき、スタートメニューへ登録されます。初回起動時にPalworldServerフォルダーを選択すると、その場所を記憶します。二重起動時は既存のウィンドウが前面へ戻ります。リリース版はGitHub Releaseを確認し、利用者の同意後に署名検証済みの更新を適用します。詳細は[PalOps Desktop](desktop/README.md)を参照してください。
+PalOps EXEはTauri 2とWindows WebView2を使用し、ローカル管理機能を自動起動して専用ウィンドウへ表示します。初回に選択したPalworldServerフォルダーを記憶し、二重起動時は既存ウィンドウを前面へ戻します。新しいPalOpsが公開されると確認画面を表示し、同意後に署名検証済みの更新を適用します。詳細は[PalOps Desktop](desktop/README.md)を参照してください。
 
 現在、WindowsのAuthenticodeコード署名証明書は使用していません。初回インストール時にWindows Defender SmartScreenの「不明な発行元」警告が表示される場合があります。GitHubの公式Release以外から入手したインストーラーは実行しないでください。アプリ内更新には別の更新署名を使用しており、改ざん検証は有効です。
+
+### EXEを起動できない場合
+
+`Open-Dashboard.cmd`はブラウザ版PalOpsを開く復旧用入口です。`Open-Server-Manager.cmd`は互換用として同じ画面を開きます。通常運用では使用しません。さらに復旧が必要な場合のみ、[緊急復旧](#緊急復旧)のPowerShell操作を使用してください。
 
 ### バックアップ方針
 
@@ -155,13 +166,13 @@ DiscordのAdministrator権限を持つユーザーは、2分で失効する確�
 
 ```text
 PalworldServer/
-├── web/                     # PalOps UI・PWA
+├── desktop/                 # 通常利用するTauri製Windows EXE
+├── web/                     # EXE内部UI・ブラウザ復旧版
 ├── scripts/                 # API・運用・自動化
 ├── config/                  # 公開テンプレートとローカル設定
 ├── docker/                  # Palworld起動ラッパー
 ├── tests/                   # Pester・クリーン環境テスト
 ├── docs/                    # 設計・Discord設定
-├── desktop/                 # Tauri製Windows EXE
 ├── .github/workflows/       # CI・リリース
 └── compose.yaml             # Palworldコンテナ定義
 ```
@@ -176,7 +187,7 @@ PalworldServer/
 ./tests/test-clean-checkout.ps1
 ```
 
-- 通常検査：公開構成、PowerShell構文、Compose、セキュリティ境界、PWA
+- 通常検査：公開構成、PowerShell構文、Compose、セキュリティ境界、EXE・ブラウザ復旧版
 - オンライン検査：Docker、Palworld API、Unlim、バックアップ、Windowsタスク
 - GitHub Actions：pushとPull Requestで通常検査、クリーンセットアップ、Pesterを実行
 
@@ -200,7 +211,7 @@ PowerShellはPalOpsの内部実装と緊急復旧用に残しています。
 
 ### リリース
 
-`v1.0.0`のようなタグをpushすると、秘密情報を含まない配布ZIPとSHA-256チェックサムをGitHub Releaseへ自動公開します。
+`v1.0.0`のようなタグをpushすると、秘密情報を含まない配布ZIP、SHA-256チェックサム、PalOpsインストーラー、更新署名、更新メタデータをGitHub Releaseへ自動公開します。デスクトップ版のバージョンも同じ値へ更新してからタグを作成します。
 
 ```powershell
 git tag v1.0.0
@@ -213,11 +224,12 @@ git push origin v1.0.0
 
 | 症状 | 確認すること |
 |---|---|
-| PalOpsが開かない | DockerではなくWindowsタスク`PalOps-Dashboard-AutoStart`と`logs/dashboard-error.log`を確認 |
+| PalOps EXEが開かない | スタートメニューから再度起動し、改善しなければ`Open-Dashboard.cmd`と`logs/dashboard-error.log`を確認 |
 | コンテナが起動しない | Docker DesktopがLinuxコンテナで起動しているか確認 |
 | 参加者が接続できない | ホスト・参加者双方のUnlimと、表示されたローカルポートを確認 |
 | バージョン不一致 | PalOpsの「更新確認」から公式イメージを安全更新 |
-| アプリとして追加できない | EdgeまたはChromeでPalOpsを開き、アドレスバーのインストールアイコンを確認 |
+| インストール時に警告が出る | GitHub公式Releaseのファイルであることを確認し、SmartScreenの詳細表示から実行 |
+| PalworldServerフォルダーを聞かれる | cloneしたプロジェクトのルートフォルダーを選択 |
 | 自動起動しない | `logs/autostart.log`とWindowsタスクスケジューラを確認 |
 
 ## セキュリティと公開範囲

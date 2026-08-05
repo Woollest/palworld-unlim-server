@@ -26,4 +26,11 @@ Contributions are welcome for bug fixes, documentation and operational safety im
 
 6. Update the README or documentation when behavior changes.
 
-Operational changes should preserve safe shutdown, verified backup and rollback behavior.
+7. For desktop changes, also run:
+
+   ```powershell
+   cargo fmt --manifest-path desktop/src-tauri/Cargo.toml -- --check
+   cargo clippy --release --locked --manifest-path desktop/src-tauri/Cargo.toml -- -D warnings
+   ```
+
+The installed PalOps EXE is the primary user interface. `Open-Dashboard.cmd`, the browser PWA and individual PowerShell scripts are compatibility or recovery surfaces. Operational changes should preserve safe shutdown, verified backup and rollback behavior across both the EXE and recovery paths.

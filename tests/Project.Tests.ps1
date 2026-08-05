@@ -40,6 +40,7 @@ Describe 'Palworld Server repository' {
         $Desktop = Get-Content -LiteralPath (Join-Path $ProjectRoot 'desktop/src-tauri/src/main.rs') -Raw
         $DesktopConfig = Get-Content -LiteralPath (Join-Path $ProjectRoot 'desktop/src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
         $App = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/app.js') -Raw
+        $Readme = Get-Content -LiteralPath (Join-Path $ProjectRoot 'README.md') -Raw
         if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/\?desktop=1' -or $Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)') { throw 'Desktop navigation is not loopback-only.' }
         if ($App -notmatch "get\('desktop'\) === '1'" -or $App -notmatch 'if \(isDesktopShell\).*installApp.*hidden') { throw 'Desktop-only PWA controls are not suppressed.' }
         if ($Desktop -notmatch 'tauri_plugin_single_instance::init' -or $Desktop -notmatch 'get_webview_window\("main"\)') { throw 'Desktop single-instance focusing is missing.' }
@@ -50,6 +51,7 @@ Describe 'Palworld Server repository' {
         if ([string]::IsNullOrWhiteSpace($DesktopConfig.plugins.updater.pubkey)) { throw 'Desktop updater public key is missing.' }
         $Release = Get-Content -LiteralPath (Join-Path $ProjectRoot '.github/workflows/release.yml') -Raw
         if ($Release -notmatch 'TAURI_SIGNING_PRIVATE_KEY' -or $Release -notmatch 'latest\.json' -or $Release -notmatch 'desktop-release') { throw 'Desktop updater release automation is incomplete.' }
+        if ($Readme -notmatch '日常運用はPalOps EXEから' -or $Readme -notmatch '`Open-Dashboard\.cmd`はブラウザ版PalOpsを開く復旧用入口') { throw 'README does not describe the EXE as the primary operator entry point.' }
     }
 
 

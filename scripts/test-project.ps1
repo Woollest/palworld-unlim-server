@@ -74,6 +74,7 @@ Invoke-TestCase 'PalOps desktop shell is loopback-only' {
     $Desktop = Get-Content -LiteralPath (Join-Path $ProjectDir 'desktop/src-tauri/src/main.rs') -Raw
     $DesktopConfig = Get-Content -LiteralPath (Join-Path $ProjectDir 'desktop/src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
     $App = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/app.js') -Raw
+    $Readme = Get-Content -LiteralPath (Join-Path $ProjectDir 'README.md') -Raw
     if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/\?desktop=1' -or $Desktop -notmatch 'on_navigation') { throw 'Desktop navigation is not constrained.' }
     if ($Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)' -or $Desktop -notmatch 'port_or_known_default\(\) == Some\(8765\)') { throw 'Desktop shell may navigate outside PalOps.' }
     if ($App -notmatch "get\('desktop'\) === '1'" -or $App -notmatch 'if \(isDesktopShell\).*installApp.*hidden') { throw 'Desktop-only PWA controls are not suppressed.' }
@@ -85,6 +86,7 @@ Invoke-TestCase 'PalOps desktop shell is loopback-only' {
     if ([string]::IsNullOrWhiteSpace($DesktopConfig.plugins.updater.pubkey)) { throw 'Desktop updater public key is missing.' }
     $Release = Get-Content -LiteralPath (Join-Path $ProjectDir '.github/workflows/release.yml') -Raw
     if ($Release -notmatch 'TAURI_SIGNING_PRIVATE_KEY' -or $Release -notmatch 'latest\.json' -or $Release -notmatch 'desktop-release') { throw 'Desktop updater release automation is incomplete.' }
+    if ($Readme -notmatch '日常運用はPalOps EXEから' -or $Readme -notmatch '`Open-Dashboard\.cmd`はブラウザ版PalOpsを開く復旧用入口') { throw 'README does not describe the EXE as the primary operator entry point.' }
 }
 
 Invoke-TestCase 'PalOps operations are serialized and recorded' {
