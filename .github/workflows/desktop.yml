@@ -1,0 +1,33 @@
+name: Desktop EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "desktop/**"
+      - "web/**"
+      - ".github/workflows/desktop.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: Build PalOps EXE
+        shell: pwsh
+        run: cargo build --release --locked --manifest-path desktop/src-tauri/Cargo.toml
+      - name: Upload PalOps EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: palops-windows-x64
+          path: desktop/src-tauri/target/release/palops.exe
+          if-no-files-found: error

@@ -4,7 +4,7 @@ Describe 'Palworld Server repository' {
     }
 
     It 'contains the required public entry points' {
-        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml')) {
+        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/src/main.rs', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml', '.github/workflows/desktop.yml')) {
             if (-not (Test-Path (Join-Path $ProjectRoot $Path))) { throw "Missing: $Path" }
         }
     }
@@ -34,6 +34,11 @@ Describe 'Palworld Server repository' {
         if ($Manifest.display -ne 'standalone' -or @($Manifest.icons).Count -lt 2) { throw 'PWA manifest is incomplete.' }
         if ($Worker -notmatch "pathname\.startsWith\('/api/'\)") { throw 'Service worker may cache live API requests.' }
         if ($Page -notmatch 'rel="manifest"' -or $Page -notmatch 'id="installApp"') { throw 'PWA installation UI is missing.' }
+    }
+
+    It 'constrains the desktop shell to local PalOps' {
+        $Desktop = Get-Content -LiteralPath (Join-Path $ProjectRoot 'desktop/src-tauri/src/main.rs') -Raw
+        if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/' -or $Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)') { throw 'Desktop navigation is not loopback-only.' }
     }
 
 

@@ -10,6 +10,7 @@ PalworldServer/
 ├── compose.yaml                 # Palworld container definition
 ├── .env.example                 # Public server configuration template
 ├── web/                         # PalOps UI, PWA manifest, service worker and icon
+├── desktop/                     # Tauri/WebView2 native Windows shell
 ├── config/
 │   ├── PalWorldSettings.ini.example
 │   ├── discord.env.example      # Public Discord configuration template
@@ -40,6 +41,8 @@ PalworldServer/
 5. Docker runs the Palworld process; Unlim remains a host-side process for UDP connectivity.
 
 PowerShell remains an implementation and recovery layer, but is no longer the normal operator interface.
+
+The native desktop shell locates an existing project directory, starts the localhost dashboard through the constrained hidden runner when necessary, and permits navigation only to `127.0.0.1:8765`. It does not expose Node.js or arbitrary shell commands to the web UI.
 
 ## Installed app model
 

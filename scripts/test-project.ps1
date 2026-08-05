@@ -33,7 +33,7 @@ Write-Host ("Mode: {0}" -f $(if ($Online) { 'online' } else { 'repository' }))
 Write-Host ''
 
 Invoke-TestCase 'Required public files exist' {
-    $Required = @('.env.example', '.gitattributes', '.gitignore', 'LICENSE', 'CONTRIBUTING.md', 'compose.yaml', 'README.md', 'SECURITY.md', 'Manage-Server.ps1', 'Open-Server-Manager.cmd', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'config/discord.env.example', 'config/PalWorldSettings.ini.example', 'docker/helper.sh', 'docs/ARCHITECTURE.md', '.github/workflows/ci.yml', '.github/workflows/release.yml', 'scripts/build-release.ps1', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/stop-dashboard.ps1', 'scripts/restore-backup.ps1', 'scripts/maintenance.ps1', 'scripts/restart.ps1', 'scripts/discord-command-bot.ps1', 'scripts/stop-discord-command-bot.ps1')
+    $Required = @('.env.example', '.gitattributes', '.gitignore', 'LICENSE', 'CONTRIBUTING.md', 'compose.yaml', 'README.md', 'SECURITY.md', 'Manage-Server.ps1', 'Open-Server-Manager.cmd', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'desktop/README.md', 'desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/tauri.conf.json', 'desktop/src-tauri/src/main.rs', 'config/discord.env.example', 'config/PalWorldSettings.ini.example', 'docker/helper.sh', 'docs/ARCHITECTURE.md', '.github/workflows/ci.yml', '.github/workflows/desktop.yml', '.github/workflows/release.yml', 'scripts/build-release.ps1', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/stop-dashboard.ps1', 'scripts/restore-backup.ps1', 'scripts/maintenance.ps1', 'scripts/restart.ps1', 'scripts/discord-command-bot.ps1', 'scripts/stop-discord-command-bot.ps1')
     $Missing = @($Required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $ProjectDir $_)) })
     if ($Missing.Count) { throw "Missing: $($Missing -join ', ')" }
 }
@@ -68,6 +68,12 @@ Invoke-TestCase 'PalOps PWA is complete and keeps APIs live' {
     if ($Manifest.display -ne 'standalone' -or @($Manifest.icons).Count -lt 2) { throw 'PWA manifest is incomplete.' }
     if ($Worker -notmatch "pathname\.startsWith\('/api/'\)") { throw 'PWA may cache live API requests.' }
     if ($Page -notmatch 'rel="manifest"' -or $Page -notmatch 'id="installApp"') { throw 'PWA installation UI is missing.' }
+}
+
+Invoke-TestCase 'PalOps desktop shell is loopback-only' {
+    $Desktop = Get-Content -LiteralPath (Join-Path $ProjectDir 'desktop/src-tauri/src/main.rs') -Raw
+    if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/' -or $Desktop -notmatch 'on_navigation') { throw 'Desktop navigation is not constrained.' }
+    if ($Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)' -or $Desktop -notmatch 'port_or_known_default\(\) == Some\(8765\)') { throw 'Desktop shell may navigate outside PalOps.' }
 }
 
 Invoke-TestCase 'PalOps operations are serialized and recorded' {

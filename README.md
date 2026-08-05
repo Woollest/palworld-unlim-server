@@ -74,6 +74,8 @@ PalOpsは`http://127.0.0.1:8765`だけで待ち受けます。LANやインター
 
 PalOps右上の「アプリをインストール」を選択します。Microsoft EdgeまたはGoogle Chromeでインストールすると、スタートメニューやタスクバーから独立したウィンドウで起動できます。
 
+ネイティブEXE版は現在プレビュー開発中です。Tauri 2とWindows WebView2を使用し、既存のPalOpsを自動起動して専用ウィンドウへ表示します。現段階ではプロジェクト内での起動を対象とし、署名付きインストーラーと自動更新は今後追加します。詳細は[PalOps Desktop](desktop/README.md)を参照してください。
+
 ### バックアップ方針
 
 バックアップは`backups/`へ保存され、作成後にワールド構造を検証します。
@@ -157,6 +159,7 @@ PalworldServer/
 ├── docker/                  # Palworld起動ラッパー
 ├── tests/                   # Pester・クリーン環境テスト
 ├── docs/                    # 設計・Discord設定
+├── desktop/                 # Tauri製Windows EXE
 ├── .github/workflows/       # CI・リリース
 └── compose.yaml             # Palworldコンテナ定義
 ```
