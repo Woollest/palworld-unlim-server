@@ -23,3 +23,5 @@ Pop-Location
 ```
 
 二重起動時は新しいプロセスを終了し、既存のPalOpsウィンドウを前面へ戻します。アプリアイコンも組み込み済みです。リリース版は起動時にGitHub Releaseを確認し、利用者の同意後に署名を検証して更新します。リリース管理は[Desktop release](../docs/DESKTOP_RELEASE.md)を参照してください。
+
+WindowsのAuthenticodeコード署名は現在使用していないため、初回インストール時にSmartScreen警告が表示される場合があります。これはアプリ内更新の改ざん検証用署名とは別の仕組みです。

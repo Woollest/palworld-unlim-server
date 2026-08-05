@@ -18,3 +18,5 @@ PalOpsのWindows版は、GitHub Releaseの`latest.json`を起動時に確認し�
 3. Release workflowがサーバー配布ZIP、NSISインストーラー、署名、`latest.json`を同じGitHub Releaseへ登録します。
 
 Windowsの発行元を表示するAuthenticodeコード署名は更新署名とは別です。コード署名証明書を取得した場合は、証明書をGitHub ActionsのSecretまたは外部署名サービスへ登録してからTauriのWindows署名設定を有効にします。
+
+現時点ではAuthenticode署名を行わず、SmartScreen警告を許容して運用します。更新署名は引き続き必須であり、無効化しません。
