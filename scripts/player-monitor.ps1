@@ -20,13 +20,27 @@ function Get-PlayerIdentityKey {
 $Access = @{}
 if (Test-Path -LiteralPath $AccessPath) {
     try {
-        foreach ($Player in @(Get-Content -LiteralPath $AccessPath -Raw | ConvertFrom-Json)) {
-            $Access[[string]$Player.key] = $Player
+        $PersistedPlayers = Get-Content -LiteralPath $AccessPath -Raw | ConvertFrom-Json
+        foreach ($Player in $PersistedPlayers) {
+            $Key = [string]$Player.key
+            if ([string]::IsNullOrWhiteSpace($Key)) { $Key = Get-PlayerIdentityKey $Player }
+            # Normalize persisted records so data written by an older PalOps version
+            # remains writable when new fields are introduced.
+            $Access[$Key] = [pscustomobject]@{
+                key = $Key
+                name = [string]$Player.name
+                accountName = [string]$Player.accountName
+                userId = [string]$Player.userId
+                firstSeenAt = [string]$Player.firstSeenAt
+                lastSeenAt = [string]$Player.lastSeenAt
+                joinCount = if ($null -eq $Player.joinCount) { 0 } else { [int]$Player.joinCount }
+                online = $false
+            }
         }
     }
     catch { Write-Warning "Player access history could not be loaded: $($_.Exception.Message)" }
 }
-elseif (Test-Path -LiteralPath $EventsPath) {
+if ($Access.Count -eq 0 -and (Test-Path -LiteralPath $EventsPath)) {
     try {
         foreach ($Event in @(Import-Csv -LiteralPath $EventsPath)) {
             $Key = Get-PlayerIdentityKey $Event
@@ -52,7 +66,7 @@ function Save-PlayerAccessDirectory {
 $Previous = @{}
 if (Test-Path -LiteralPath $StatePath) {
     try {
-        $SavedPlayers = @(Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json)
+        $SavedPlayers = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
         foreach ($Player in $SavedPlayers) { $Previous[$Player.userId] = $Player }
     } catch {}
 }
