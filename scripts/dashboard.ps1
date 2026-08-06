@@ -53,8 +53,43 @@ function Get-Incidents { if (-not (Test-Path $IncidentPath)){return @()}; try{$R
 function Add-Incident { param($Body); $Title=([string]$Body.title).Trim();$Detail=([string]$Body.detail).Trim();if($Title.Length-lt 2-or$Title.Length-gt 100-or$Detail.Length-gt 1000){throw 'Title or detail length is invalid.'};if([string]$Body.severity-notin @('info','warning','critical')){throw 'Invalid severity.'};$Entry=[pscustomobject]@{id=[guid]::NewGuid().ToString('N');createdAt=(Get-Date).ToString('o');severity=[string]$Body.severity;title=$Title;detail=$Detail;status='open'};@($Entry)+@(Get-Incidents)|Select-Object -First 100|ConvertTo-Json -Depth 4|Set-Content $IncidentPath -Encoding UTF8;return $Entry }
 function Get-MigrationInventory { @((Get-ChildItem (Join-Path $ProjectDir 'exports') -Filter 'palops-migration-*.zip' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTime -Descending|Select-Object -First 10)|ForEach-Object{[pscustomobject]@{name=$_.Name;createdAt=$_.LastWriteTime.ToString('o');sizeMb=[math]::Round($_.Length/1MB,1)}}) }
 
+function Get-PlayerSessionStatistics {
+    $Statistics = @{}
+    if (-not (Test-Path -LiteralPath $PlayerEventsPath)) { return $Statistics }
+    try {
+        $Events = @(Import-Csv -LiteralPath $PlayerEventsPath | Sort-Object { try { [DateTimeOffset]::Parse([string]$_.timestamp) } catch { [DateTimeOffset]::MinValue } })
+        foreach ($Event in $Events) {
+            try { $At = [DateTimeOffset]::Parse([string]$Event.timestamp) } catch { continue }
+            $Key = if ($Event.userId) { "user:$($Event.userId)" } elseif ($Event.accountName) { "account:$($Event.accountName)" } else { "name:$($Event.name)" }
+            if (-not $Statistics.ContainsKey($Key)) {
+                $Statistics[$Key] = [pscustomobject]@{ totalSeconds = [double]0; activeStart = $null; lastSessionSeconds = $null; longestSessionSeconds = [double]0; completedSessions = 0; estimated = $false }
+            }
+            $Stat = $Statistics[$Key]
+            if ([string]$Event.event -eq 'JOIN') {
+                if ($null -ne $Stat.activeStart) { $Stat.estimated = $true }
+                $Stat.activeStart = $At
+                continue
+            }
+            if ([string]$Event.event -eq 'LEAVE') {
+                if ($null -eq $Stat.activeStart) { $Stat.estimated = $true; continue }
+                $Seconds = ($At - [DateTimeOffset]$Stat.activeStart).TotalSeconds
+                if ($Seconds -ge 0) {
+                    $Stat.totalSeconds += $Seconds
+                    $Stat.lastSessionSeconds = $Seconds
+                    $Stat.longestSessionSeconds = [math]::Max($Stat.longestSessionSeconds, $Seconds)
+                    $Stat.completedSessions++
+                } else { $Stat.estimated = $true }
+                $Stat.activeStart = $null
+            }
+        }
+    }
+    catch {}
+    return $Statistics
+}
+
 function Get-PlayerAccessDirectory {
     $Directory = @{}
+    $SessionStatistics = Get-PlayerSessionStatistics
     if (Test-Path -LiteralPath $PlayerAccessPath) {
         try {
             foreach ($Player in @(Get-Content -LiteralPath $PlayerAccessPath -Raw | ConvertFrom-Json)) {
@@ -99,7 +134,19 @@ function Get-PlayerAccessDirectory {
     return @($Directory.Values |
         Sort-Object @{ Expression = { [bool]$_.online }; Descending = $true }, @{ Expression = { [string]$_.lastSeenAt }; Descending = $true } |
         Select-Object -First 200 |
-        ForEach-Object { [pscustomobject]@{ name = [string]$_.name; accountName = [string]$_.accountName; firstSeenAt = [string]$_.firstSeenAt; lastSeenAt = [string]$_.lastSeenAt; joinCount = [int]$_.joinCount; online = [bool]$_.online } })
+        ForEach-Object {
+            $Key = [string]$_.key
+            $Stat = if ($SessionStatistics.ContainsKey($Key)) { $SessionStatistics[$Key] } else { [pscustomobject]@{ totalSeconds = 0; activeStart = $null; lastSessionSeconds = $null; longestSessionSeconds = 0; completedSessions = 0; estimated = $true } }
+            $CurrentSessionSeconds = $null
+            $TotalSeconds = [double]$Stat.totalSeconds
+            if ([bool]$_.online) {
+                if ($null -ne $Stat.activeStart) {
+                    $CurrentSessionSeconds = [math]::Max(0, ((Get-Date) - ([DateTimeOffset]$Stat.activeStart).LocalDateTime).TotalSeconds)
+                    $TotalSeconds += $CurrentSessionSeconds
+                } else { $Stat.estimated = $true }
+            } elseif ($null -ne $Stat.activeStart) { $Stat.estimated = $true }
+            [pscustomobject]@{ name = [string]$_.name; accountName = [string]$_.accountName; firstSeenAt = [string]$_.firstSeenAt; lastSeenAt = [string]$_.lastSeenAt; joinCount = [int]$_.joinCount; online = [bool]$_.online; totalPlaySeconds = [int][math]::Round($TotalSeconds); currentSessionSeconds = if ($null -eq $CurrentSessionSeconds) { $null } else { [int][math]::Round($CurrentSessionSeconds) }; lastSessionSeconds = if ($null -eq $Stat.lastSessionSeconds) { $null } else { [int][math]::Round($Stat.lastSessionSeconds) }; longestSessionSeconds = [int][math]::Round($Stat.longestSessionSeconds); playTimeEstimated = [bool]$Stat.estimated }
+        })
 }
 
 function Write-HttpResponse {

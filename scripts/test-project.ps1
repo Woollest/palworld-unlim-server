@@ -202,6 +202,13 @@ Invoke-TestCase 'PalOps records and displays player access history locally' {
     if ($App -match 'innerHTML\s*=.*player\.') { throw 'Player-provided values may be rendered as HTML.' }
 }
 
+Invoke-TestCase 'PalOps calculates player session duration from join and leave events' {
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    $Web = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/app.js') -Raw
+    if ($Dashboard -notmatch 'Get-PlayerSessionStatistics' -or $Dashboard -notmatch 'totalPlaySeconds' -or $Dashboard -notmatch 'currentSessionSeconds' -or $Dashboard -notmatch 'playTimeEstimated') { throw 'Player session statistics are incomplete.' }
+    if ($Web -notmatch 'playDuration' -or $Web -notmatch 'player-playtime') { throw 'Player play-time display is missing.' }
+}
+
 Invoke-TestCase 'Git excludes secrets and generated data' {
     if (-not (Test-Path -LiteralPath (Join-Path $ProjectDir '.git'))) { throw 'Local Git repository is not initialized.' }
     foreach ($Path in @('.env', 'config/discord.env', 'config/admin.env', 'data/Saved', 'runtime/state.tmp', 'backups/test.zip', 'logs/test.log', 'recovery/test.tmp', 'reports/latest-test-results.json')) {

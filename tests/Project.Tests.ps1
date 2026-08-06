@@ -200,4 +200,22 @@ Describe 'Palworld Server repository' {
         if ($Page -notmatch 'id="playerDirectory"' -or $App -notmatch "fetch\('/api/players'") { throw 'Player directory UI is missing.' }
         if ($App -match 'innerHTML\s*=.*player\.') { throw 'Player-provided values may be rendered as HTML.' }
     }
+
+    It 'calculates completed and active player sessions' {
+        . (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -FunctionsOnly
+        $OriginalEventsPath = $PlayerEventsPath
+        try {
+            $PlayerEventsPath = Join-Path $TestDrive 'player-sessions.csv'
+            @(
+                'timestamp,event,name,accountName,userId',
+                '"2026-08-01T00:00:00+09:00","JOIN","Tester","Tester","steam_test"',
+                '"2026-08-01T01:00:00+09:00","LEAVE","Tester","Tester","steam_test"',
+                '"2026-08-01T02:00:00+09:00","JOIN","Tester","Tester","steam_test"'
+            ) | Set-Content -LiteralPath $PlayerEventsPath -Encoding UTF8
+            $Statistics = Get-PlayerSessionStatistics
+            $Player = $Statistics['user:steam_test']
+            if ([int]$Player.totalSeconds -ne 3600 -or $Player.completedSessions -ne 1 -or $null -eq $Player.activeStart -or $Player.estimated) { throw 'Session durations were calculated incorrectly.' }
+        }
+        finally { $PlayerEventsPath = $OriginalEventsPath }
+    }
 }

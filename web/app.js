@@ -75,6 +75,17 @@ function duration(seconds) {
   return hours ? `${hours}時間 ${minutes}分` : `${minutes}分`;
 }
 
+function playDuration(seconds) {
+  if (seconds == null) return '–';
+  if (seconds < 60) return '1分未満';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor(seconds % 86400 / 3600);
+  const minutes = Math.floor(seconds % 3600 / 60);
+  if (days) return `${days}日 ${hours}時間`;
+  if (hours) return `${hours}時間 ${minutes}分`;
+  return `${minutes}分`;
+}
+
 function date(value) {
   return value ? new Intl.DateTimeFormat('ja-JP', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '–';
 }
@@ -113,9 +124,13 @@ function renderPlayerDirectory(players) {
     identity.append(name);
     if (player.accountName && player.accountName !== player.name) { const account = document.createElement('span'); account.textContent = player.accountName; identity.append(account); }
     const state = document.createElement('span'); state.className = `player-state ${player.online ? 'online' : ''}`; state.textContent = player.online ? 'オンライン' : 'オフライン';
+    const playTime = document.createElement('span'); playTime.className = 'player-playtime';
+    const total = document.createElement('strong'); total.textContent = `${player.playTimeEstimated ? '推定 ' : ''}${playDuration(player.totalPlaySeconds)}`;
+    playTime.append(total);
+    if (player.online && player.currentSessionSeconds != null) { const current = document.createElement('small'); current.textContent = `今回 ${playDuration(player.currentSessionSeconds)}`; playTime.append(current); }
     const lastSeen = document.createElement('time'); lastSeen.textContent = player.online ? `確認 ${date(player.lastSeenAt)}` : date(player.lastSeenAt);
     const joins = document.createElement('span'); joins.className = 'player-joins'; joins.textContent = `${player.joinCount ?? 0}回`;
-    row.append(identity, state, lastSeen, joins);
+    row.append(identity, state, playTime, lastSeen, joins);
     return row;
   }));
 }
