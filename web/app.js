@@ -43,7 +43,7 @@ const actionLabels = {
   shutdown: { name: '安全停止', confirm: 'サーバーを安全停止しますか？', detail: '参加者へ予告し、セーブとバックアップを作成してから停止します。' },
   'check-update': { name: '更新確認', confirm: '公式サーバーの更新を確認しますか？', detail: '公式コンテナレジストリだけを確認します。サーバーは停止しません。' },
   update: { name: '安全更新', confirm: 'Palworldサーバーを安全更新しますか？', detail: '参加者確認、予告、セーブ、バックアップ後に更新します。失敗時は以前のバージョンへ自動復旧します。' }
-  , restore: { name: '復元' }, 'migration-export': { name: '移行パッケージ作成' }, diagnostics: { name: 'システム診断', confirm: '診断を実行しますか？', detail: 'Docker、バックアップ、設定、自動起動などを停止せずに検査します。' }
+  , restore: { name: '復元' }, 'migration-export': { name: '移行パッケージ作成' }, diagnostics: { name: 'システム診断', confirm: '診断を実行しますか？', detail: 'Docker、バックアップ、設定、自動起動などを停止せずに検査します。' }, 'automatic-backup': { name: '自動バックアップ' }
 };
 
 const diagnosisText = {
@@ -93,7 +93,7 @@ function renderHistory(history) {
     name.textContent = item.target ? `${actionLabels[item.name]?.name ?? item.name} · ${item.target}` : actionLabels[item.name]?.name ?? item.name;
     const result = document.createElement('span');
     result.className = `history-result ${item.state}`;
-    result.textContent = item.state === 'succeeded' ? '完了' : '失敗';
+    result.textContent = item.state === 'succeeded' ? '完了' : item.state === 'deferred' ? '延期' : '失敗';
     const time = document.createElement('time');
     time.className = 'history-time';
     time.textContent = date(item.completedAt);
@@ -409,6 +409,23 @@ $('restoreDialog').addEventListener('close', async () => {
     $('actionState').textContent = `${name} の復元を受け付けました。`;
   } catch (error) { $('actionState').textContent = `復元を開始できませんでした: ${error.message}`; }
   await refresh();
+});
+
+$('clearHistory').addEventListener('click', () => $('clearHistoryDialog').showModal());
+$('clearHistoryDialog').addEventListener('close', async () => {
+  if ($('clearHistoryDialog').returnValue !== 'confirm') return;
+  $('clearHistory').disabled = true;
+  try {
+    const response = await fetch('/api/history', { method: 'DELETE' });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error);
+    renderHistory([]);
+    $('actionState').textContent = '最近の操作をクリアしました。';
+  } catch (error) {
+    $('actionState').textContent = `操作履歴をクリアできませんでした: ${error.message}`;
+  } finally {
+    $('clearHistory').disabled = false;
+  }
 });
 
 $('maintenanceForm').addEventListener('submit', async event => {

@@ -8,6 +8,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProjectDir = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $ProjectDir
+. "$PSScriptRoot\common.ps1"
 $RuntimeDir = Join-Path $ProjectDir 'runtime'
 $StatePath = Join-Path $RuntimeDir 'dashboard-action.json'
 $HistoryPath = Join-Path $RuntimeDir 'dashboard-history.json'
@@ -23,16 +24,6 @@ function Set-ActionState {
     $TemporaryPath = "$StatePath.tmp"
     $Value | ConvertTo-Json -Compress | Set-Content -LiteralPath $TemporaryPath -Encoding UTF8
     Move-Item -LiteralPath $TemporaryPath -Destination $StatePath -Force
-}
-
-function Add-ActionHistory {
-    param([string]$State, [string]$StartedAt, [string]$CompletedAt, [string]$Message)
-    $History = @()
-    if (Test-Path -LiteralPath $HistoryPath) {
-        try { $History = @(Get-Content -LiteralPath $HistoryPath -Raw | ConvertFrom-Json) } catch { $History = @() }
-    }
-    $Entry = [pscustomobject]@{ name = $Action; target = $Target; state = $State; startedAt = $StartedAt; completedAt = $CompletedAt; message = $Message }
-    @($Entry) + @($History) | Select-Object -First 20 | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $HistoryPath -Encoding UTF8
 }
 
 $LockStream = $null
@@ -57,13 +48,13 @@ try {
     $CompletedAt = (Get-Date).ToString('o')
     $Message = 'Operation completed successfully.'
     Set-ActionState -State 'succeeded' -StartedAt $StartedAt -CompletedAt $CompletedAt -Message $Message
-    Add-ActionHistory -State 'succeeded' -StartedAt $StartedAt -CompletedAt $CompletedAt -Message $Message
+    Add-PalOpsOperationHistory -Name $Action -Target $Target -State 'succeeded' -StartedAt $StartedAt -CompletedAt $CompletedAt -Message $Message
 }
 catch {
     $CompletedAt = (Get-Date).ToString('o')
     $Message = $_.Exception.Message
     try { Set-ActionState -State 'failed' -StartedAt $StartedAt -CompletedAt $CompletedAt -Message $Message } catch {}
-    try { Add-ActionHistory -State 'failed' -StartedAt $StartedAt -CompletedAt $CompletedAt -Message $Message } catch {}
+    try { Add-PalOpsOperationHistory -Name $Action -Target $Target -State 'failed' -StartedAt $StartedAt -CompletedAt $CompletedAt -Message $Message } catch {}
     Write-Error $Message
     exit 1
 }

@@ -1,5 +1,49 @@
 $ErrorActionPreference = 'Stop'
 
+function Get-PalOpsOperationHistory {
+    param([string]$Path = (Join-Path $ProjectDir 'runtime\dashboard-history.json'), [int]$Limit = 20)
+    if (-not (Test-Path -LiteralPath $Path)) { return @() }
+    try {
+        $Items = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+        return @($Items | Select-Object -First $Limit)
+    }
+    catch { return @() }
+}
+
+function Add-PalOpsOperationHistory {
+    param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$State, [Parameter(Mandatory)][string]$StartedAt, [Parameter(Mandatory)][string]$CompletedAt, [string]$Message = '', [string]$Target = '', [string]$Path = (Join-Path $ProjectDir 'runtime\dashboard-history.json'))
+    $Mutex = [Threading.Mutex]::new($false, 'Local\PalOpsOperationHistory')
+    $Acquired = $false
+    try {
+        $Acquired = $Mutex.WaitOne([TimeSpan]::FromSeconds(5))
+        if (-not $Acquired) { throw 'Operation history is busy.' }
+        $Entry = [pscustomobject]@{ name = $Name; target = $Target; state = $State; startedAt = $StartedAt; completedAt = $CompletedAt; message = $Message }
+        $History = @(Get-PalOpsOperationHistory -Path $Path -Limit 20)
+        $TemporaryPath = "$Path.$PID.tmp"
+        @($Entry) + @($History) | Select-Object -First 20 | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $TemporaryPath -Encoding UTF8
+        Move-Item -LiteralPath $TemporaryPath -Destination $Path -Force
+    }
+    finally {
+        if ($Acquired) { $Mutex.ReleaseMutex() }
+        $Mutex.Dispose()
+    }
+}
+
+function Clear-PalOpsOperationHistory {
+    param([string]$Path = (Join-Path $ProjectDir 'runtime\dashboard-history.json'))
+    $Mutex = [Threading.Mutex]::new($false, 'Local\PalOpsOperationHistory')
+    $Acquired = $false
+    try {
+        $Acquired = $Mutex.WaitOne([TimeSpan]::FromSeconds(5))
+        if (-not $Acquired) { throw 'Operation history is busy.' }
+        '[]' | Set-Content -LiteralPath $Path -Encoding UTF8
+    }
+    finally {
+        if ($Acquired) { $Mutex.ReleaseMutex() }
+        $Mutex.Dispose()
+    }
+}
+
 function Invoke-DockerCompose {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
     & docker compose @Arguments

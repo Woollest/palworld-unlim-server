@@ -15,8 +15,15 @@ try {
         Write-Host "Backup deferred because $($Players.Count) player(s) are online."
         return
     }
+    $StartedAt = (Get-Date).ToString('o')
     & "$PSScriptRoot\backup.ps1" -Mode Scheduled
+    $CompletedAt = (Get-Date).ToString('o')
+    $CreatedBackup = Get-ChildItem -LiteralPath (Join-Path $ProjectDir 'backups') -Filter 'palworld-*.zip' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    Add-PalOpsOperationHistory -Name 'automatic-backup' -Target $(if ($CreatedBackup) { $CreatedBackup.Name } else { '' }) -State 'succeeded' -StartedAt $StartedAt -CompletedAt $CompletedAt -Message 'Scheduled backup completed successfully.'
 }
 catch {
+    $FailedAt = (Get-Date).ToString('o')
+    if (-not $StartedAt) { $StartedAt = $FailedAt }
+    try { Add-PalOpsOperationHistory -Name 'automatic-backup' -State 'failed' -StartedAt $StartedAt -CompletedAt $FailedAt -Message $_.Exception.Message } catch {}
     throw
 }

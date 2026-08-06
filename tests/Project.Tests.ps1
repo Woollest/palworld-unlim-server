@@ -69,6 +69,17 @@ Describe 'Palworld Server repository' {
         if ($History.Count -ne 2 -or $History[0].name -ne 'backup' -or $History[0].PSObject.Properties.Name -contains 'value') { throw 'Action history is nested.' }
     }
 
+    It 'records automatic operations and clears only display history' {
+        . (Join-Path $ProjectRoot 'scripts/common.ps1')
+        $HistoryPath = Join-Path $TestDrive 'automatic-history.json'
+        $Now = (Get-Date).ToString('o')
+        Add-PalOpsOperationHistory -Name 'automatic-backup' -State 'succeeded' -StartedAt $Now -CompletedAt $Now -Target 'test.zip' -Path $HistoryPath
+        $History = @(Get-PalOpsOperationHistory -Path $HistoryPath)
+        if ($History.Count -ne 1 -or $History[0].name -ne 'automatic-backup') { throw 'Automatic operation was not recorded.' }
+        Clear-PalOpsOperationHistory -Path $HistoryPath
+        if (@(Get-PalOpsOperationHistory -Path $HistoryPath).Count -ne 0) { throw 'Display history was not cleared.' }
+    }
+
     It 'does not pass an empty positional argument to action scripts' {
         $Runner = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard-action.ps1') -Raw
         if ($Runner -notmatch 'if \(@\(\$ScriptArguments\)\.Count -gt 0\)' -or $Runner -notmatch 'else \{ & \$ScriptPath \}') {

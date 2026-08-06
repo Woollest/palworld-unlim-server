@@ -100,13 +100,14 @@
       <div class="buttons"><button data-action="start">起動</button><button data-action="backup">バックアップ</button><button data-action="diagnostics">診断を実行</button><button data-action="shutdown" class="danger">安全停止</button></div>
     </section>
     <section class="history panel">
-      <div class="section-heading"><h2>最近の操作</h2><span>直近8件</span></div>
+      <div class="section-heading"><h2>最近の操作</h2><div class="history-actions"><span>直近8件</span><button id="clearHistory" type="button">履歴をクリア</button></div></div>
       <div id="historyList" class="history-list"><p class="empty">操作履歴はありません</p></div>
     </section>
     <footer><span>ローカル接続のみ</span><span id="updated">–</span></footer>
   </main>
   <dialog id="confirmDialog"><form method="dialog"><h2 id="dialogTitle"></h2><p id="dialogText"></p><div><button value="cancel">キャンセル</button><button id="confirmButton" value="confirm" class="danger">実行する</button></div></form></dialog>
   <dialog id="restoreDialog"><form method="dialog"><h2>バックアップを復元</h2><p id="restoreTarget"></p><p>現在のワールドを退避し、選択した時点へ戻します。サーバー稼働中は参加者への予告とバックアップ後に復元し、完了後に再起動します。</p><label>確認のため「復元」と入力してください<input id="restoreConfirmation" autocomplete="off"></label><div><button value="cancel">キャンセル</button><button id="restoreButton" value="confirm" class="danger" disabled>復元する</button></div></form></dialog>
+  <dialog id="clearHistoryDialog"><form method="dialog"><h2>最近の操作をクリアしますか？</h2><p>画面に表示される操作履歴だけを消去します。バックアップ、サーバーログ、参加履歴は削除されません。</p><div><button value="cancel">キャンセル</button><button value="confirm" class="danger">すべてクリア</button></div></form></dialog>
   <dialog id="installHelp"><form method="dialog"><h2>PalOpsをアプリとして追加</h2><p>Microsoft EdgeまたはGoogle Chromeでこの画面を開き、アドレスバー右側のインストールアイコンを選択してください。インストール後はスタートメニューとタスクバーから独立したウィンドウで起動できます。</p><div><button value="close">閉じる</button></div></form></dialog>
   <script src="/app.js"></script>
 </body>

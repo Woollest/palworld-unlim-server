@@ -148,9 +148,7 @@ function Get-ActionState {
 }
 
 function Get-ActionHistory {
-    if (-not (Test-Path -LiteralPath $ActionHistoryPath)) { return @() }
-    try { $Response = Get-Content -LiteralPath $ActionHistoryPath -Raw | ConvertFrom-Json; return @($Response) | Select-Object -First 8 }
-    catch { return @() }
+    return @(Get-PalOpsOperationHistory -Path $ActionHistoryPath -Limit 8)
 }
 
 function Get-UpdateStatus {
@@ -463,6 +461,13 @@ try {
             if ($Context.Request.HttpMethod -eq 'GET' -and $Path -eq '/api/players') {
                 $Players = @(Get-PlayerAccessDirectory)
                 Write-JsonResponse -Context $Context -StatusCode 200 -Value @{ players = $Players; total = $Players.Count; online = @($Players | Where-Object online).Count }
+                continue
+            }
+            if ($Context.Request.HttpMethod -eq 'DELETE' -and $Path -eq '/api/history') {
+                $ExpectedOrigin = "http://127.0.0.1:$Port"
+                if ($Context.Request.Headers['Origin'] -ne $ExpectedOrigin) { Write-JsonResponse -Context $Context -StatusCode 403 -Value @{ error = 'Request origin was rejected.' }; continue }
+                try { Clear-PalOpsOperationHistory; Write-JsonResponse -Context $Context -StatusCode 200 -Value @{ cleared = $true } }
+                catch { Write-JsonResponse -Context $Context -StatusCode 409 -Value @{ error = $_.Exception.Message } }
                 continue
             }
             if ($Context.Request.HttpMethod -eq 'GET' -and $Path -eq '/api/backups') {
