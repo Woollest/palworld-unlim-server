@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$Online,
     [switch]$Notify
 )
@@ -40,7 +40,13 @@ Invoke-TestCase 'Required public files exist' {
 
 Invoke-TestCase 'All PowerShell files parse' {
     $Files = @(Get-ChildItem -LiteralPath $ProjectDir -Filter '*.ps1' -File; Get-ChildItem -LiteralPath (Join-Path $ProjectDir 'scripts') -Filter '*.ps1' -File; Get-ChildItem -LiteralPath (Join-Path $ProjectDir 'tests') -Filter '*.ps1' -File)
-    foreach ($File in $Files) { [void][scriptblock]::Create((Get-Content -LiteralPath $File.FullName -Raw)) }
+    foreach ($File in $Files) {
+        $Content = Get-Content -LiteralPath $File.FullName -Raw -Encoding UTF8
+        $Bytes = [IO.File]::ReadAllBytes($File.FullName)
+        $HasUtf8Bom = $Bytes.Length -ge 3 -and $Bytes[0] -eq 239 -and $Bytes[1] -eq 187 -and $Bytes[2] -eq 191
+        if ($Content -match '[^\x00-\x7F]' -and -not $HasUtf8Bom) { throw "PowerShell 5 requires a UTF-8 BOM for non-ASCII script: $($File.Name)" }
+        [void][scriptblock]::Create($Content)
+    }
 }
 
 Invoke-TestCase 'Docker Compose configuration is valid' {
@@ -74,7 +80,7 @@ Invoke-TestCase 'PalOps desktop shell is loopback-only' {
     $Desktop = Get-Content -LiteralPath (Join-Path $ProjectDir 'desktop/src-tauri/src/main.rs') -Raw
     $DesktopConfig = Get-Content -LiteralPath (Join-Path $ProjectDir 'desktop/src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
     $App = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/app.js') -Raw
-    $Readme = Get-Content -LiteralPath (Join-Path $ProjectDir 'README.md') -Raw
+    $Readme = Get-Content -LiteralPath (Join-Path $ProjectDir 'README.md') -Raw -Encoding UTF8
     if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/\?desktop=1' -or $Desktop -notmatch 'on_navigation') { throw 'Desktop navigation is not constrained.' }
     if ($Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)' -or $Desktop -notmatch 'port_or_known_default\(\) == Some\(8765\)') { throw 'Desktop shell may navigate outside PalOps.' }
     if ($App -notmatch "get\('desktop'\) === '1'" -or $App -notmatch 'if \(isDesktopShell\).*installApp.*hidden') { throw 'Desktop-only PWA controls are not suppressed.' }

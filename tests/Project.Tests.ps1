@@ -1,4 +1,4 @@
-Describe 'Palworld Server repository' {
+﻿Describe 'Palworld Server repository' {
     BeforeAll {
         $ProjectRoot = Split-Path -Parent $PSScriptRoot
     }
@@ -12,7 +12,11 @@ Describe 'Palworld Server repository' {
     It 'parses every PowerShell script' {
         $Files = @(Get-ChildItem -LiteralPath $ProjectRoot -Filter '*.ps1' -File; Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'scripts') -Filter '*.ps1' -File; Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'tests') -Filter '*.ps1' -File)
         foreach ($File in $Files) {
-            [void][scriptblock]::Create((Get-Content -LiteralPath $File.FullName -Raw))
+            $Content = Get-Content -LiteralPath $File.FullName -Raw -Encoding UTF8
+            $Bytes = [IO.File]::ReadAllBytes($File.FullName)
+            $HasUtf8Bom = $Bytes.Length -ge 3 -and $Bytes[0] -eq 239 -and $Bytes[1] -eq 187 -and $Bytes[2] -eq 191
+            if ($Content -match '[^\x00-\x7F]' -and -not $HasUtf8Bom) { throw "PowerShell 5 incompatible encoding: $($File.Name)" }
+            [void][scriptblock]::Create($Content)
         }
     }
 
@@ -40,7 +44,7 @@ Describe 'Palworld Server repository' {
         $Desktop = Get-Content -LiteralPath (Join-Path $ProjectRoot 'desktop/src-tauri/src/main.rs') -Raw
         $DesktopConfig = Get-Content -LiteralPath (Join-Path $ProjectRoot 'desktop/src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
         $App = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/app.js') -Raw
-        $Readme = Get-Content -LiteralPath (Join-Path $ProjectRoot 'README.md') -Raw
+        $Readme = Get-Content -LiteralPath (Join-Path $ProjectRoot 'README.md') -Raw -Encoding UTF8
         if ($Desktop -notmatch 'http://127\.0\.0\.1:8765/\?desktop=1' -or $Desktop -notmatch 'host_str\(\) == Some\("127\.0\.0\.1"\)') { throw 'Desktop navigation is not loopback-only.' }
         if ($App -notmatch "get\('desktop'\) === '1'" -or $App -notmatch 'if \(isDesktopShell\).*installApp.*hidden') { throw 'Desktop-only PWA controls are not suppressed.' }
         if ($Desktop -notmatch 'tauri_plugin_single_instance::init' -or $Desktop -notmatch 'get_webview_window\("main"\)') { throw 'Desktop single-instance focusing is missing.' }
