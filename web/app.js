@@ -170,6 +170,61 @@ async function refreshMaintenance() {
   catch { $('maintenanceCount').textContent = '取得失敗'; }
 }
 
+async function refreshAutomations() {
+  try {
+    const response = await fetch('/api/automations', { cache: 'no-store' });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error);
+    const items = body.automations ?? [];
+    $('automationState').textContent = `${items.filter(item => item.enabled).length} / ${items.length} 有効`;
+    $('automationList').replaceChildren(...items.map(item => {
+      const row = document.createElement('div');
+      row.className = 'automation-row';
+      const copy = document.createElement('div');
+      copy.className = 'automation-copy';
+      const name = document.createElement('strong');
+      name.textContent = item.name;
+      const description = document.createElement('span');
+      description.textContent = item.available ? item.description : `${item.description}（Windowsタスクが未登録です）`;
+      copy.append(name, description);
+      const label = document.createElement('label');
+      label.className = 'switch';
+      label.title = item.enabled ? `${item.name}を一時停止` : `${item.name}を有効化`;
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = item.enabled;
+      input.disabled = !item.available;
+      input.dataset.automation = item.key;
+      input.setAttribute('aria-label', item.name);
+      const track = document.createElement('span');
+      track.className = 'switch-track';
+      label.append(input, track);
+      row.append(copy, label);
+      return row;
+    }));
+  } catch (error) {
+    $('automationState').textContent = '読み込みエラー';
+    $('automationMessage').textContent = `自動化設定を読み込めませんでした: ${error.message}`;
+  }
+}
+
+$('automationList').addEventListener('change', async event => {
+  const input = event.target.closest('[data-automation]');
+  if (!input) return;
+  input.disabled = true;
+  $('automationMessage').textContent = 'Windowsの自動化設定を変更しています…';
+  try {
+    const response = await fetch(`/api/automations/${input.dataset.automation}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: input.checked }) });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error);
+    $('automationMessage').textContent = `${body.name}を${body.enabled ? '有効にしました' : '一時停止しました'}。設定はPC再起動後も保持されます。`;
+  } catch (error) {
+    input.checked = !input.checked;
+    $('automationMessage').textContent = `変更できませんでした: ${error.message}`;
+  }
+  await refreshAutomations();
+});
+
 function renderSettings(payload) {
   const groups = $('settingsGroups');
   groups.replaceChildren(...Object.keys(settingGroups).map(groupName => {
@@ -435,6 +490,7 @@ refresh();
 refreshPlayerDirectory();
 refreshBackups();
 refreshMaintenance();
+refreshAutomations();
 refreshSettings();
 refreshIncidents();
 refreshMigrations();
@@ -443,3 +499,4 @@ setInterval(refresh, 5000);
 setInterval(refreshPlayerDirectory, 10000);
 setInterval(refreshBackups, 30000);
 setInterval(refreshMaintenance, 30000);
+setInterval(refreshAutomations, 30000);

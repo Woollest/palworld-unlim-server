@@ -52,6 +52,12 @@
         <div class="settings-footer"><p id="settingsMessage">変更は保存後の再起動で反映されます。</p><div><button type="submit">設定を保存</button><button type="button" data-action="restart">安全再起動</button></div></div>
       </form>
     </details>
+    <section class="automation-manager panel">
+      <div class="section-heading"><h2>自動化設定</h2><span id="automationState">設定を確認中</span></div>
+      <p class="automation-note">オフにしても登録内容は保持され、現在動作中のゲームサーバーは停止しません。</p>
+      <div id="automationList" class="automation-list"><p class="empty">自動化設定を読み込んでいます。</p></div>
+      <p id="automationMessage" class="form-message"></p>
+    </section>
     <section class="maintenance panel">
       <div class="section-heading"><h2>メンテナンス予約</h2><span id="maintenanceCount">0件</span></div>
       <form id="maintenanceForm" class="maintenance-form">

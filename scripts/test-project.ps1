@@ -140,6 +140,15 @@ Invoke-TestCase 'PalOps dashboard has single-instance recovery' {
     if ($AutoStart -notmatch 'PalOps-Dashboard-AutoStart') { throw 'Dashboard auto-start task is missing.' }
 }
 
+Invoke-TestCase 'PalOps automation switches are persistent and allowlisted' {
+    $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw
+    $Monitor = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/player-monitor.ps1') -Raw
+    $Web = Get-Content -LiteralPath (Join-Path $ProjectDir 'web/app.js') -Raw
+    if ($Dashboard -notmatch 'Get-AutomationSettings' -or $Dashboard -notmatch 'Enable-ScheduledTask' -or $Dashboard -notmatch 'Disable-ScheduledTask') { throw 'Persistent automation task controls are missing.' }
+    if ($Dashboard -notmatch 'server-autostart' -or $Dashboard -notmatch 'automatic-backup' -or $Dashboard -notmatch 'automatic-recovery') { throw 'Required automation allowlist entries are missing.' }
+    if ($Monitor -notmatch 'AutomaticRecoveryEnabled' -or $Web -notmatch 'data-automation') { throw 'Automation state is not enforced or displayed.' }
+}
+
 Invoke-TestCase 'PalOps restore is constrained and recoverable' {
     $Restore = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/restore.ps1') -Raw
     $Coordinator = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/restore-backup.ps1') -Raw

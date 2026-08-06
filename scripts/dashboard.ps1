@@ -19,6 +19,36 @@ $PlayerAccessPath = Join-Path $ProjectDir 'logs\player-access.json'
 $PlayerEventsPath = Join-Path $ProjectDir 'logs\player-events.csv'
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
 
+$AutomationDefinitions = [ordered]@{
+    'server-autostart' = @{ name = 'PCログイン時のサーバー自動起動'; description = 'PalworldとUnlimをWindowsログイン後に起動します。'; tasks = @('Palworld-Unlim-AutoStart') }
+    'automatic-backup' = @{ name = '自動バックアップ'; description = '参加者がいない時間に定期バックアップを作成します。'; tasks = @('Palworld-Idle-Backup') }
+    'automatic-recovery' = @{ name = '自動復旧'; description = 'Palworld、Unlim、PalOpsの停止を検知して復旧します。'; tasks = @('Palworld-Monitor-Watchdog') }
+    'health-history' = @{ name = '稼働履歴の記録'; description = 'FPS、CPU、メモリなどの推移を定期記録します。'; tasks = @('Palworld-Health-Metrics') }
+    'update-check' = @{ name = '更新の自動確認'; description = 'Palworld公式サーバーの更新を毎日確認します。'; tasks = @('Palworld-Update-Check') }
+    'housekeeping' = @{ name = '保守と検証'; description = 'バックアップ検証、ログ整理、自動テストを実行します。'; tasks = @('Palworld-Backup-Verify', 'Palworld-Log-Maintenance', 'Palworld-Project-Test') }
+}
+
+function Get-AutomationSettings {
+    $Items = foreach ($Key in $AutomationDefinitions.Keys) {
+        $Definition = $AutomationDefinitions[$Key]
+        $Tasks = @($Definition.tasks | ForEach-Object { Get-ScheduledTask -TaskName $_ -ErrorAction SilentlyContinue })
+        [pscustomobject]@{ key = $Key; name = $Definition.name; description = $Definition.description; enabled = $Tasks.Count -eq $Definition.tasks.Count -and @($Tasks | Where-Object { -not $_.Settings.Enabled }).Count -eq 0; available = $Tasks.Count -eq $Definition.tasks.Count }
+    }
+    return @($Items)
+}
+
+function Set-AutomationSetting {
+    param([string]$Key, [bool]$Enabled)
+    if (-not $AutomationDefinitions.Contains($Key)) { throw 'Unknown automation setting.' }
+    $Definition = $AutomationDefinitions[$Key]
+    $Tasks = @($Definition.tasks | ForEach-Object { Get-ScheduledTask -TaskName $_ -ErrorAction SilentlyContinue })
+    if ($Tasks.Count -ne $Definition.tasks.Count) { throw 'One or more Windows tasks are not registered.' }
+    foreach ($Task in $Tasks) {
+        if ($Enabled) { $Task | Enable-ScheduledTask | Out-Null } else { $Task | Disable-ScheduledTask | Out-Null }
+    }
+    return @(Get-AutomationSettings | Where-Object key -eq $Key)[0]
+}
+
 function Get-Incidents { if (-not (Test-Path $IncidentPath)){return @()}; try{$Response=Get-Content $IncidentPath -Raw|ConvertFrom-Json;return @($Response)|Select-Object -First 100}catch{return @()} }
 function Add-Incident { param($Body); $Title=([string]$Body.title).Trim();$Detail=([string]$Body.detail).Trim();if($Title.Length-lt 2-or$Title.Length-gt 100-or$Detail.Length-gt 1000){throw 'Title or detail length is invalid.'};if([string]$Body.severity-notin @('info','warning','critical')){throw 'Invalid severity.'};$Entry=[pscustomobject]@{id=[guid]::NewGuid().ToString('N');createdAt=(Get-Date).ToString('o');severity=[string]$Body.severity;title=$Title;detail=$Detail;status='open'};@($Entry)+@(Get-Incidents)|Select-Object -First 100|ConvertTo-Json -Depth 4|Set-Content $IncidentPath -Encoding UTF8;return $Entry }
 function Get-MigrationInventory { @((Get-ChildItem (Join-Path $ProjectDir 'exports') -Filter 'palops-migration-*.zip' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTime -Descending|Select-Object -First 10)|ForEach-Object{[pscustomobject]@{name=$_.Name;createdAt=$_.LastWriteTime.ToString('o');sizeMb=[math]::Round($_.Length/1MB,1)}}) }
@@ -446,6 +476,22 @@ try {
             if ($Context.Request.HttpMethod -eq 'GET' -and $Path -eq '/api/settings') {
                 try { Write-JsonResponse -Context $Context -StatusCode 200 -Value (Get-EditableWorldSettings) }
                 catch { Write-JsonResponse -Context $Context -StatusCode 500 -Value @{ error = $_.Exception.Message } }
+                continue
+            }
+            if ($Context.Request.HttpMethod -eq 'GET' -and $Path -eq '/api/automations') {
+                try { Write-JsonResponse -Context $Context -StatusCode 200 -Value @{ automations = @(Get-AutomationSettings) } }
+                catch { Write-JsonResponse -Context $Context -StatusCode 500 -Value @{ error = $_.Exception.Message } }
+                continue
+            }
+            if ($Context.Request.HttpMethod -eq 'POST' -and $Path -match '^/api/automations/([a-z-]{3,40})$') {
+                $ExpectedOrigin = "http://127.0.0.1:$Port"
+                if ($Context.Request.Headers['Origin'] -ne $ExpectedOrigin) { Write-JsonResponse -Context $Context -StatusCode 403 -Value @{ error = 'Request origin was rejected.' }; continue }
+                if ($Context.Request.ContentLength64 -lt 1 -or $Context.Request.ContentLength64 -gt 256) { Write-JsonResponse -Context $Context -StatusCode 400 -Value @{ error = 'Invalid request body.' }; continue }
+                $Reader = [IO.StreamReader]::new($Context.Request.InputStream, $Context.Request.ContentEncoding)
+                try { $Body = $Reader.ReadToEnd() | ConvertFrom-Json } finally { $Reader.Dispose() }
+                if ($Body.PSObject.Properties.Name -notcontains 'enabled' -or $Body.enabled -isnot [bool]) { Write-JsonResponse -Context $Context -StatusCode 400 -Value @{ error = 'Enabled must be a boolean.' }; continue }
+                try { Write-JsonResponse -Context $Context -StatusCode 200 -Value (Set-AutomationSetting -Key $Matches[1] -Enabled ([bool]$Body.enabled)) }
+                catch { Write-JsonResponse -Context $Context -StatusCode 409 -Value @{ error = $_.Exception.Message } }
                 continue
             }
             if ($Context.Request.HttpMethod -eq 'GET' -and $Path -eq '/api/incidents') { Write-JsonResponse $Context 200 @{incidents=@(Get-Incidents)}; continue }

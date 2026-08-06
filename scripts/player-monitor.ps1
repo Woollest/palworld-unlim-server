@@ -92,7 +92,14 @@ while ($true) {
     }
     catch { Write-Warning "Disk space check failed: $($_.Exception.Message)" }
 
-    if (-not (Test-UnlimHost)) {
+    $AutomaticRecoveryEnabled = $true
+    try {
+        $RecoveryTask = Get-ScheduledTask -TaskName 'Palworld-Monitor-Watchdog' -ErrorAction SilentlyContinue
+        if ($RecoveryTask) { $AutomaticRecoveryEnabled = [bool]$RecoveryTask.Settings.Enabled }
+    }
+    catch { Write-Warning "Automatic recovery setting could not be read: $($_.Exception.Message)" }
+
+    if ($AutomaticRecoveryEnabled -and -not (Test-UnlimHost)) {
         if (-not $UnlimAlerted) {
             Invoke-DiscordNotificationSafe -Type ServiceError -Message 'Unlim stopped unexpectedly. Automatic recovery has started.'
             Invoke-DiscordConnectionSafe -State Offline

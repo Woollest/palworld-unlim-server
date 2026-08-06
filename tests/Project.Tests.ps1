@@ -123,6 +123,14 @@ Describe 'Palworld Server repository' {
         if ($Dashboard -notmatch 'Local\\PalOpsDashboard' -or $Watchdog -notmatch 'dashboard\.ps1') { throw 'Single-instance recovery is incomplete.' }
     }
 
+    It 'controls background automation through persistent allowlisted tasks' {
+        $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw
+        $Monitor = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/player-monitor.ps1') -Raw
+        $Web = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/app.js') -Raw
+        if ($Dashboard -notmatch 'Get-AutomationSettings' -or $Dashboard -notmatch 'Enable-ScheduledTask' -or $Dashboard -notmatch 'Disable-ScheduledTask') { throw 'Persistent automation controls are incomplete.' }
+        if ($Monitor -notmatch 'AutomaticRecoveryEnabled' -or $Web -notmatch 'data-automation') { throw 'Automation state is not enforced or displayed.' }
+    }
+
 
     It 'rejects unsafe backup names' {
         . (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -FunctionsOnly
