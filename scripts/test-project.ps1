@@ -197,6 +197,13 @@ Invoke-TestCase 'PalOps Discord commands are permissioned and confirmed' {
     if ($Template -notmatch 'DISCORD_COMMAND_CHANNEL_ID=' -or $Template -notmatch 'DISCORD_COMMAND_PREFIX=') { throw 'Discord command configuration is missing.' }
 }
 
+Invoke-TestCase 'PalOps routes operational Discord logs to an administrator channel' {
+    $Notifier = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/discord-notify.ps1') -Raw
+    $Template = Get-Content -LiteralPath (Join-Path $ProjectDir 'config/discord.env.example') -Raw
+    if ($Notifier -notmatch 'DISCORD_ADMIN_LOG_CHANNEL_ID' -or $Notifier -notmatch '\$Type -eq ''Maintenance''') { throw 'Administrator log routing or participant maintenance routing is missing.' }
+    if ($Template -notmatch 'DISCORD_ADMIN_LOG_CHANNEL_ID=') { throw 'Administrator log channel configuration is missing.' }
+}
+
 Invoke-TestCase 'PalOps records and displays player access history locally' {
     $Monitor = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/player-monitor.ps1') -Raw
     $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectDir 'scripts/dashboard.ps1') -Raw

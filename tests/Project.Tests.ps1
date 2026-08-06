@@ -194,6 +194,12 @@
         if (Test-AdministratorPermissions -RoleIds @('member-role') -GuildRoles $Roles -GuildId 'guild') { throw 'Non-administrator role was accepted.' }
     }
 
+    It 'separates administrator logs from participant announcements' {
+        $Notifier = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/discord-notify.ps1') -Raw
+        $Template = Get-Content -LiteralPath (Join-Path $ProjectRoot 'config/discord.env.example') -Raw
+        if ($Notifier -notmatch 'DISCORD_ADMIN_LOG_CHANNEL_ID' -or $Notifier -notmatch '\$Type -eq ''Maintenance''' -or $Template -notmatch 'DISCORD_ADMIN_LOG_CHANNEL_ID=') { throw 'Discord channel routing is incomplete.' }
+    }
+
     It 'records and displays player access history locally' {
         $Monitor = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/player-monitor.ps1') -Raw
         $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw

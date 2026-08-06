@@ -13,12 +13,11 @@ foreach ($Line in Get-Content -LiteralPath $ConfigPath) {
 }
 if ($Config['DISCORD_ENABLED'] -ne 'true') { return }
 $Token = $Config['DISCORD_BOT_TOKEN']
+$AdminLogChannelId = if ($Config['DISCORD_ADMIN_LOG_CHANNEL_ID']) { $Config['DISCORD_ADMIN_LOG_CHANNEL_ID'] } elseif ($Config['DISCORD_BACKUP_CHANNEL_ID']) { $Config['DISCORD_BACKUP_CHANNEL_ID'] } else { $Config['DISCORD_ALERT_CHANNEL_ID'] }
 $ChannelId = if ($Type -eq 'Maintenance') {
     $Config['DISCORD_ANNOUNCEMENT_CHANNEL_ID']
-} elseif ($Type -in @('BackupSuccess', 'BackupFailure')) {
-    if ($Config['DISCORD_BACKUP_CHANNEL_ID']) { $Config['DISCORD_BACKUP_CHANNEL_ID'] } else { $Config['DISCORD_ALERT_CHANNEL_ID'] }
-} elseif ($Config['DISCORD_ALERT_CHANNEL_ID']) {
-    $Config['DISCORD_ALERT_CHANNEL_ID']
+} elseif ($AdminLogChannelId) {
+    $AdminLogChannelId
 } else {
     $Config['DISCORD_CHANNEL_ID']
 }
