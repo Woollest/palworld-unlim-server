@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -172,21 +173,68 @@ internal sealed class MainForm : Form
         SetStatus("Unlimを公式配布元から更新しています…", Color.DarkOrange);
         try
         {
-            var installerPath = Path.Combine(Path.GetTempPath(), "unlim-official-install.ps1");
-            using (var client = new HttpClient())
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
             {
-                var installer = await client.GetByteArrayAsync("https://unlim.cc/install.ps1");
-                await File.WriteAllBytesAsync(installerPath, installer);
+                NoCache = true,
+                NoStore = true
+            };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.1");
+
+            var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            using var manifestResponse = await client.GetAsync($"https://api.zpw.jp/unlimmap?cachebust={cacheBust}");
+            manifestResponse.EnsureSuccessStatusCode();
+            await using var manifestStream = await manifestResponse.Content.ReadAsStreamAsync();
+            using var manifest = await JsonDocument.ParseAsync(manifestStream);
+
+            var root = manifest.RootElement;
+            var version = root.GetProperty("version").GetString();
+            var downloadUrl = root.GetProperty("downloads").GetProperty("windows_amd64").GetString();
+            var hashInfo = root.GetProperty("hashes").GetProperty("windows_amd64");
+            var expectedHash = hashInfo.GetProperty("sha256").GetString()?.ToLowerInvariant();
+            var expectedSize = hashInfo.GetProperty("size").GetInt64();
+            if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(downloadUrl) ||
+                string.IsNullOrWhiteSpace(expectedHash) || expectedHash.Length != 64 || expectedSize <= 0)
+                throw new InvalidOperationException("Unlim公式APIの配布情報が不完全です。");
+
+            var separator = downloadUrl.Contains('?') ? '&' : '?';
+            var verifiedDownloadUrl = $"{downloadUrl}{separator}cachebust={cacheBust}";
+            var installDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Unlim");
+            var destination = Path.Combine(installDirectory, "unlim.exe");
+            var staging = Path.Combine(appDataDirectory, $"unlim-{version}.download");
+
+            try
+            {
+                using var downloadResponse = await client.GetAsync(verifiedDownloadUrl,
+                    HttpCompletionOption.ResponseHeadersRead);
+                downloadResponse.EnsureSuccessStatusCode();
+                await using (var source = await downloadResponse.Content.ReadAsStreamAsync())
+                await using (var target = new FileStream(staging, FileMode.Create, FileAccess.Write, FileShare.None))
+                    await source.CopyToAsync(target);
+
+                var actualSize = new FileInfo(staging).Length;
+                if (actualSize != expectedSize)
+                    throw new InvalidOperationException(
+                        $"ダウンロードサイズが公式値と一致しません（期待: {expectedSize}, 実際: {actualSize}）。");
+
+                await using var verificationStream = File.OpenRead(staging);
+                var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(verificationStream)).ToLowerInvariant();
+                if (!CryptographicOperations.FixedTimeEquals(
+                        Encoding.ASCII.GetBytes(actualHash), Encoding.ASCII.GetBytes(expectedHash)))
+                    throw new InvalidOperationException(
+                        $"SHA-256が公式値と一致しません。\n期待: {expectedHash}\n実際: {actualHash}");
+
+                Directory.CreateDirectory(installDirectory);
+                File.Move(staging, destination, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(staging)) File.Delete(staging);
             }
 
-            using var process = StartProcess("powershell.exe",
-                $"-NoProfile -ExecutionPolicy Bypass -File \"{installerPath}\"", redirect: false);
-            await process.WaitForExitAsync();
-            if (process.ExitCode != 0 || FindUnlim() is null)
-                throw new InvalidOperationException("Unlimのインストールを確認できませんでした。");
-
             await RefreshVersionAsync();
-            SetStatus("更新が完了しました。", Color.SeaGreen);
+            SetStatus($"Unlim {version}への更新が完了しました。", Color.SeaGreen);
         }
         catch (Exception exception)
         {
