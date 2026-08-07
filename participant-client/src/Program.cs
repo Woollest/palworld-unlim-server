@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -138,6 +139,60 @@ internal sealed class MainForm : Form
         return candidates.FirstOrDefault(File.Exists);
     }
 
+    private IReadOnlyList<Process> FindOtherUnlimProcesses()
+    {
+        var childId = unlimProcess is { HasExited: false } ? unlimProcess.Id : -1;
+        return Process.GetProcessesByName("unlim")
+            .Where(process => process.Id != childId)
+            .ToArray();
+    }
+
+    private bool ResolveUnlimProcessConflict(string operation)
+    {
+        var processes = FindOtherUnlimProcesses();
+        if (processes.Count == 0) return true;
+
+        var answer = MessageBox.Show(
+            $"別のUnlimアプリまたはCLIが{processes.Count}個起動しています。\n" +
+            $"このままでは{operation}できません。既存のUnlimを終了しますか？\n\n" +
+            "ホストとしてUnlimを使用しているPCでは［いいえ］を選んでください。",
+            "Unlimがすでに起動しています", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (answer != DialogResult.Yes) return false;
+
+        foreach (var process in processes)
+        {
+            try
+            {
+                if (process.HasExited) continue;
+                if (process.MainWindowHandle != IntPtr.Zero)
+                {
+                    process.CloseMainWindow();
+                    if (process.WaitForExit(2500)) continue;
+                }
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(3000);
+            }
+            catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
+            {
+                ShowOperationError("既存のUnlimを終了できませんでした。", exception,
+                    "Unlimが管理者権限で動作している可能性があります。タスクマネージャーを管理者として開いてUnlimを終了するか、この参加アプリを右クリックして［管理者として実行］してください。");
+                return false;
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        if (FindOtherUnlimProcesses().Count > 0)
+        {
+            MessageBox.Show("Unlimがまだ動作しています。タスクマネージャーから終了して、もう一度お試しください。",
+                Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+        return true;
+    }
+
     private async Task RefreshVersionAsync()
     {
         var executable = FindUnlim();
@@ -168,6 +223,7 @@ internal sealed class MainForm : Form
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
+        if (!ResolveUnlimProcessConflict("更新")) return;
 
         SetBusy(true);
         SetStatus("Unlimを公式配布元から更新しています…", Color.DarkOrange);
@@ -179,7 +235,7 @@ internal sealed class MainForm : Form
                 NoCache = true,
                 NoStore = true
             };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.1");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.2");
 
             var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             using var manifestResponse = await client.GetAsync($"https://api.zpw.jp/unlimmap?cachebust={cacheBust}");
@@ -234,12 +290,15 @@ internal sealed class MainForm : Form
             }
 
             await RefreshVersionAsync();
+            var installed = FindUnlim();
+            if (installed is null || !File.Exists(installed))
+                throw new InvalidOperationException("更新直後にUnlimが見つかりません。Windows Defenderが隔離した可能性があります。");
             SetStatus($"Unlim {version}への更新が完了しました。", Color.SeaGreen);
         }
         catch (Exception exception)
         {
             SetStatus("更新に失敗しました。", Color.Firebrick);
-            MessageBox.Show(exception.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ShowOperationError("Unlimを更新できませんでした。", exception);
         }
         finally
         {
@@ -266,6 +325,7 @@ internal sealed class MainForm : Form
             executable = FindUnlim();
             if (executable is null) return;
         }
+        if (!ResolveUnlimProcessConflict("接続")) return;
 
         SaveSettings(key);
         File.WriteAllText(LogPath, string.Empty, new UTF8Encoding(true));
@@ -303,8 +363,32 @@ internal sealed class MainForm : Form
         catch (Exception exception)
         {
             SetStatus("接続に失敗しました。", Color.Firebrick);
-            MessageBox.Show(exception.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ShowOperationError("Unlimへ接続できませんでした。", exception);
         }
+    }
+
+    private void ShowOperationError(string heading, Exception exception, string? guidance = null)
+    {
+        var detail = guidance ?? exception switch
+        {
+            UnauthorizedAccessException =>
+                "ファイルを変更する権限がありません。起動中のUnlimを終了してください。解決しない場合は、この参加アプリを右クリックして［管理者として実行］してください。",
+            IOException when exception.Message.Contains("being used", StringComparison.OrdinalIgnoreCase) ||
+                             exception.Message.Contains("使用", StringComparison.OrdinalIgnoreCase) =>
+                "Unlimのファイルが使用中です。GUI版とCLI版をすべて終了し、タスクマネージャーにunlim.exeが残っていないことを確認してください。",
+            HttpRequestException =>
+                "公式配布サーバーへ接続できませんでした。インターネット接続、VPN、プロキシ、セキュリティソフトを確認してから再試行してください。",
+            CryptographicException =>
+                "ダウンロードしたファイルの安全性を確認できなかったため、置き換えを中止しました。検証を無効にせず、時間を置いて再試行してください。",
+            Win32Exception win32 when win32.NativeErrorCode is 5 or 740 =>
+                "Windowsに操作を拒否されました。Unlimを終了し、この参加アプリを右クリックして［管理者として実行］してください。",
+            _ when exception.Message.Contains("SHA-256", StringComparison.OrdinalIgnoreCase) =>
+                "公式情報とファイルが一致しないため、安全のため更新を中止しました。時間を置いて再試行してください。",
+            _ => "アプリを再起動してもう一度お試しください。"
+        };
+
+        MessageBox.Show($"{heading}\n\n{detail}\n\n詳細:\n{exception.Message}\n\n" +
+                        $"ログ: {LogPath}", Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 
     private void OnUnlimOutput(object sender, DataReceivedEventArgs eventArgs)
