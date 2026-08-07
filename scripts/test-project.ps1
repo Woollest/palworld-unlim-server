@@ -224,7 +224,7 @@ Invoke-TestCase 'PalOps calculates player session duration from join and leave e
 
 Invoke-TestCase 'Git excludes secrets and generated data' {
     if (-not (Test-Path -LiteralPath (Join-Path $ProjectDir '.git'))) { throw 'Local Git repository is not initialized.' }
-    foreach ($Path in @('.env', 'config/discord.env', 'config/admin.env', 'data/Saved', 'runtime/state.tmp', 'backups/test.zip', 'logs/test.log', 'recovery/test.tmp', 'reports/latest-test-results.json', 'participant-client/src/bin/test.dll', 'participant-client/src/obj/test.tmp')) {
+    foreach ($Path in @('.env', 'config/discord.env', 'config/admin.env', 'data/Saved', 'runtime/state.tmp', 'backups/test.zip', 'logs/test.log', 'recovery/test.tmp', 'reports/latest-test-results.json')) {
         & git check-ignore --no-index -q -- $Path
         if ($LASTEXITCODE -ne 0) { throw "Not ignored: $Path" }
     }

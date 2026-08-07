@@ -1,0 +1,32 @@
+name: Retract Invalid Participant Releases
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/retract-participant-releases.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  retract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete invalid participant releases and tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for version in 0.1.0 0.1.1 0.1.2 0.1.3 0.1.4 0.1.5; do
+            tag="participant-v${version}"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release delete "$tag" --cleanup-tag --yes
+            else
+              git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" ":refs/tags/${tag}" || true
+            fi
+          done

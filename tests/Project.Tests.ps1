@@ -20,23 +20,6 @@
         }
     }
 
-    It 'ships the participant Unlim client without bundling Unlim' {
-        $ClientDirectory = Join-Path $ProjectRoot 'participant-client'
-        $Client = Get-Content -LiteralPath (Join-Path $ClientDirectory 'Palworld-Unlim-Client.ps1') -Raw -Encoding UTF8
-        $NativeClient = Get-Content -LiteralPath (Join-Path $ClientDirectory 'src/Program.cs') -Raw -Encoding UTF8
-        $NativeProject = Get-Content -LiteralPath (Join-Path $ClientDirectory 'src/PalworldUnlimClient.csproj') -Raw -Encoding UTF8
-        if (-not (Test-Path (Join-Path $ClientDirectory 'Palworldに参加.cmd'))) { throw 'Participant launcher is missing.' }
-        if ($Client -notmatch '--connect' -or $Client -notmatch 'https://unlim\.cc/install\.ps1') { throw 'Participant client cannot connect or update from the official source.' }
-        if ($Client -match '--port\s+8989') { throw 'The Unlim internal port must not be used as the Palworld game port.' }
-        if ($NativeClient -notmatch 'ArgumentList\.Add\("--connect"\)' -or $NativeClient -notmatch 'https://api\.zpw\.jp/unlimmap' -or $NativeClient -notmatch 'SHA256\.HashDataAsync' -or $NativeClient -notmatch 'expectedSize') { throw 'Native participant client cannot securely connect or update from the official source.' }
-        if ($NativeClient -notmatch 'FindOtherUnlimProcesses' -or $NativeClient -notmatch 'ResolveUnlimProcessConflict' -or $NativeClient -notmatch 'UnauthorizedAccessException' -or $NativeClient -notmatch '管理者として実行') { throw 'Native participant client does not diagnose process conflicts and permission failures.' }
-        if ($NativeClient -notmatch 'RepairEnvironmentAsync' -or $NativeClient -notmatch 'DeleteUnlimDirectory' -or $NativeClient -notmatch 'app-diagnostics\.log' -or $NativeClient -notmatch 'PID \{process\.Id\}') { throw 'Native participant client cannot safely repair and diagnose stale Unlim installations.' }
-        if ($NativeClient -notmatch 'existingInstallation is not null && !ResolveUnlimProcessConflict\("更新"\)') { throw 'A clean participant PC may be blocked by a false Unlim conflict.' }
-        if ($NativeClient -notmatch 'EnsureDefenderExclusionAsync' -or $NativeClient -notmatch 'Verb = "runas"' -or $NativeClient -notmatch 'Add-MpPreference' -or $NativeClient -notmatch 'AddInstallDirectoryToUserPath' -or $NativeClient -notmatch 'ReadUnlimVersionAsync') { throw 'A clean participant PC cannot complete and verify elevated first-time installation.' }
-        if ($NativeProject -notmatch '<PublishSingleFile>true</PublishSingleFile>' -or $NativeProject -notmatch '<SelfContained>true</SelfContained>') { throw 'Native participant client is not a standalone executable.' }
-        if (Get-ChildItem -LiteralPath $ClientDirectory -Filter 'unlim.exe' -Recurse -ErrorAction SilentlyContinue) { throw 'Unlim must not be bundled with this project.' }
-    }
-
     It 'keeps the REST API on localhost' {
         $Compose = Get-Content -LiteralPath (Join-Path $ProjectRoot 'compose.yaml') -Raw
         if ($Compose -notmatch '127\.0\.0\.1:\$\{PALWORLD_REST_PORT:-8212\}:8212/tcp') { throw 'REST API is not bound to localhost.' }
