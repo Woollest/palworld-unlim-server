@@ -20,6 +20,14 @@ internal static class Program
         }
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm(Environment.GetCommandLineArgs().Contains("--smoke-test")));
+        var smokeTest = Environment.GetCommandLineArgs().Contains("--smoke-test");
+        using var form = new MainForm(smokeTest);
+        using var smokeTimer = new System.Windows.Forms.Timer { Interval = 1500 };
+        if (smokeTest)
+        {
+            smokeTimer.Tick += (_, _) => form.Close();
+            smokeTimer.Start();
+        }
+        Application.Run(form);
     }
 }

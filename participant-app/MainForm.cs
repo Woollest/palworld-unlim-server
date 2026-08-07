@@ -19,6 +19,12 @@ internal sealed class MainForm : Form
     private readonly Button connectButton = new();
     private readonly Button disconnectButton = new();
     private readonly Button copyButton = new();
+    private readonly Button themeButton = new();
+    private readonly Panel header = new();
+    private readonly List<Panel> cards = [];
+    private readonly List<Label> mutedLabels = [];
+    private Label? detailLabel;
+    private Label? attributionLabel;
     private readonly System.Windows.Forms.Timer listenerTimer = new() { Interval = 1000 };
     private PortDetector? portDetector;
     private bool closing;
@@ -34,22 +40,21 @@ internal sealed class MainForm : Form
         Font = new Font("Yu Gothic UI", 10F);
         BackColor = Color.FromArgb(241, 244, 248);
 
-        var header = new Panel
-        {
-            Dock = DockStyle.Top,
-            Height = 92,
-            BackColor = Color.FromArgb(24, 72, 132)
-        };
+        header.Dock = DockStyle.Top;
+        header.Height = 92;
         var title = Label("Palworld Join", 24, 16, 21F, FontStyle.Bold);
         title.ForeColor = Color.White;
         var subtitle = Label("接続キーを入力するだけでPalworldサーバーへ参加できます", 27, 57, 10F);
         subtitle.ForeColor = Color.FromArgb(220, 231, 246);
-        header.Controls.AddRange([title, subtitle]);
+        ConfigureButton(themeButton, settings.DarkMode ? "ライト" : "ダーク", 584, 23, 92);
+        themeButton.Height = 38;
+        themeButton.Click += (_, _) => ToggleTheme();
+        header.Controls.AddRange([title, subtitle, themeButton]);
         Controls.Add(header);
 
         var statusCard = Card(20, 112, 660, 72);
         var statusTitle = Label("UNLIM", 18, 10, 8.5F, FontStyle.Bold);
-        statusTitle.ForeColor = Color.FromArgb(92, 105, 122);
+        mutedLabels.Add(statusTitle);
         unlimStatus.SetBounds(18, 35, 450, 26);
         unlimStatus.Text = "確認中…";
         ConfigureButton(installButton, "更新を確認", 505, 15, 130);
@@ -60,7 +65,7 @@ internal sealed class MainForm : Form
         var joinCard = Card(20, 201, 660, 210);
         var joinTitle = Label("サーバーへ接続", 18, 14, 13F, FontStyle.Bold);
         var keyLabel = Label("接続キー", 18, 52, 9F, FontStyle.Bold);
-        keyLabel.ForeColor = Color.FromArgb(70, 82, 98);
+        mutedLabels.Add(keyLabel);
         keyBox.SetBounds(18, 78, 624, 32);
         keyBox.Text = settings.SaveConnectionKey ? settings.ConnectionKey : string.Empty;
         keyBox.BorderStyle = BorderStyle.FixedSingle;
@@ -82,7 +87,7 @@ internal sealed class MainForm : Form
 
         var addressCard = Card(20, 428, 660, 96);
         var addressTitle = Label("PALWORLDの接続先", 18, 11, 8.5F, FontStyle.Bold);
-        addressTitle.ForeColor = Color.FromArgb(92, 105, 122);
+        mutedLabels.Add(addressTitle);
         portBox.SetBounds(18, 43, 445, 32);
         portBox.DropDownStyle = ComboBoxStyle.DropDown;
         portBox.Text = "ポートを検出中";
@@ -92,8 +97,8 @@ internal sealed class MainForm : Form
         addressCard.Controls.AddRange([addressTitle, portBox, copyButton]);
         Controls.Add(addressCard);
 
-        var detail = Label("詳細ログ", 24, 548, 10F, FontStyle.Bold);
-        Controls.Add(detail);
+        detailLabel = Label("詳細ログ", 24, 548, 10F, FontStyle.Bold);
+        Controls.Add(detailLabel);
         logBox.SetBounds(20, 577, 660, 125);
         logBox.Multiline = true;
         logBox.ReadOnly = true;
@@ -103,9 +108,10 @@ internal sealed class MainForm : Form
         logBox.Font = new Font("Consolas", 9F);
         Controls.Add(logBox);
 
-        var attribution = Label("Powered by Unlim  •  非公式参加ツール  •  PREVIEW", 400, 712, 8.5F);
-        attribution.ForeColor = Color.DimGray;
-        Controls.Add(attribution);
+        attributionLabel = Label("Powered by Unlim  •  非公式参加ツール  •  PREVIEW", 400, 712, 8.5F);
+        Controls.Add(attributionLabel);
+
+        ApplyTheme();
 
         listenerTimer.Tick += (_, _) => RefreshDetectedPorts();
         session.OutputReceived += OnSessionOutput;
@@ -321,17 +327,17 @@ internal sealed class MainForm : Form
         if (portDetector.HasAuthoritativePort)
         {
             portBox.Items.Clear();
-            foreach (var port in ports) portBox.Items.Add(port.ToString());
+            foreach (var port in ports) portBox.Items.Add(FormatAddress(port));
             if (portDetector.RecommendedPort is int authoritativePort)
-                portBox.Text = authoritativePort.ToString();
+                portBox.Text = FormatAddress(authoritativePort);
         }
         foreach (var port in ports)
-            if (!portBox.Items.Contains(port.ToString())) portBox.Items.Add(port.ToString());
+            if (!portBox.Items.Contains(FormatAddress(port))) portBox.Items.Add(FormatAddress(port));
         if (ports.Count == 0) return;
         if (!portDetector.HasAuthoritativePort &&
             (portBox.Text == "ポートを検出中" || string.IsNullOrWhiteSpace(portBox.Text)) &&
             portDetector.RecommendedPort is int recommended)
-            portBox.Text = recommended.ToString();
+            portBox.Text = FormatAddress(recommended);
         copyButton.Enabled = true;
         connectionStatus.Text = ports.Count == 1
             ? "接続先を検出しました"
@@ -341,14 +347,18 @@ internal sealed class MainForm : Form
 
     private void CopyAddress()
     {
-        if (!int.TryParse(portBox.Text.Trim(), out var port) || port is <= 0 or > 65535)
+        var address = portBox.Text.Trim();
+        var separator = address.LastIndexOf(':');
+        var portText = separator >= 0 ? address[(separator + 1)..] : address;
+        if (!int.TryParse(portText, out var port) || port is <= 0 or > 65535)
         {
             MessageBox.Show("有効なポートを選択または入力してください。", Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-        Clipboard.SetText($"127.0.0.1:{port}");
-        connectionStatus.Text = $"127.0.0.1:{port} をコピーしました";
+        address = FormatAddress(port);
+        Clipboard.SetText(address);
+        connectionStatus.Text = $"{address} をコピーしました";
     }
 
     private void Disconnect()
@@ -382,6 +392,56 @@ internal sealed class MainForm : Form
         SettingsStore.Save(settings);
     }
 
+    private static string FormatAddress(int port) => $"127.0.0.1:{port}";
+
+    private void ToggleTheme()
+    {
+        settings.DarkMode = !settings.DarkMode;
+        SettingsStore.Save(settings);
+        ApplyTheme();
+    }
+
+    private void ApplyTheme()
+    {
+        var dark = settings.DarkMode;
+        var page = dark ? Color.FromArgb(20, 24, 31) : Color.FromArgb(241, 244, 248);
+        var card = dark ? Color.FromArgb(31, 37, 47) : Color.White;
+        var input = dark ? Color.FromArgb(23, 28, 36) : Color.White;
+        var text = dark ? Color.FromArgb(235, 239, 245) : Color.FromArgb(35, 45, 60);
+        var muted = dark ? Color.FromArgb(161, 174, 192) : Color.FromArgb(92, 105, 122);
+
+        BackColor = page;
+        ForeColor = text;
+        header.BackColor = dark ? Color.FromArgb(16, 44, 78) : Color.FromArgb(24, 72, 132);
+        foreach (var panel in cards)
+        {
+            panel.BackColor = card;
+            panel.ForeColor = text;
+        }
+        foreach (var label in mutedLabels) label.ForeColor = muted;
+        if (detailLabel is not null) detailLabel.ForeColor = text;
+        if (attributionLabel is not null) attributionLabel.ForeColor = muted;
+
+        keyBox.BackColor = input;
+        keyBox.ForeColor = text;
+        portBox.BackColor = input;
+        portBox.ForeColor = text;
+        logBox.BackColor = input;
+        logBox.ForeColor = text;
+        saveKey.ForeColor = text;
+
+        ConfigureButton(themeButton, dark ? "ライト" : "ダーク", 584, 23, 92,
+            dark ? Color.FromArgb(53, 69, 88) : Color.FromArgb(229, 234, 241),
+            dark ? Color.White : Color.FromArgb(35, 45, 60));
+        themeButton.Height = 38;
+        ConfigureButton(installButton, "更新を確認", 505, 15, 130,
+            dark ? Color.FromArgb(53, 61, 74) : null, dark ? Color.White : null);
+        ConfigureButton(disconnectButton, "切断", 188, 157, 110,
+            dark ? Color.FromArgb(53, 61, 74) : null, dark ? Color.White : null);
+        ConfigureButton(copyButton, "接続先をコピー", 475, 39, 160,
+            dark ? Color.FromArgb(53, 61, 74) : null, dark ? Color.White : null);
+    }
+
     private void AppendLog(string line)
     {
         var formatted = $"[{DateTimeOffset.Now:HH:mm:ss}] {line}";
@@ -408,13 +468,17 @@ internal sealed class MainForm : Form
         Font = new Font("Yu Gothic UI", size, style)
     };
 
-    private static Panel Card(int x, int y, int width, int height) => new()
+    private Panel Card(int x, int y, int width, int height)
     {
-        Location = new Point(x, y),
-        Size = new Size(width, height),
-        BackColor = Color.White,
-        BorderStyle = BorderStyle.FixedSingle
-    };
+        var panel = new Panel
+        {
+            Location = new Point(x, y),
+            Size = new Size(width, height),
+            BorderStyle = BorderStyle.FixedSingle
+        };
+        cards.Add(panel);
+        return panel;
+    }
 
     private static void ConfigureButton(Button button, string text, int x, int y, int width,
         Color? backColor = null, Color? foreColor = null)

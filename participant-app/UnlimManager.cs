@@ -177,7 +177,7 @@ internal sealed class UnlimManager
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
         client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
             { NoCache = true, NoStore = true };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldJoin/0.2.0");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldJoin/0.3.0");
         return client;
     }
 

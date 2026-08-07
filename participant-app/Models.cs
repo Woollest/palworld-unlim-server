@@ -6,6 +6,7 @@ internal sealed class AppSettings
 {
     public bool SaveConnectionKey { get; set; }
     public string ConnectionKey { get; set; } = string.Empty;
+    public bool DarkMode { get; set; }
     public DateTimeOffset? LastUpdateCheck { get; set; }
 }
 
