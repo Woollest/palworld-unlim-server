@@ -10,7 +10,7 @@
     }
 
     It 'parses every PowerShell script' {
-        $Files = @(Get-ChildItem -LiteralPath $ProjectRoot -Filter '*.ps1' -File; Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'scripts') -Filter '*.ps1' -File; Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'tests') -Filter '*.ps1' -File)
+        $Files = @(Get-ChildItem -LiteralPath $ProjectRoot -Filter '*.ps1' -File -Recurse)
         foreach ($File in $Files) {
             $Content = Get-Content -LiteralPath $File.FullName -Raw -Encoding UTF8
             $Bytes = [IO.File]::ReadAllBytes($File.FullName)
@@ -18,6 +18,15 @@
             if ($Content -match '[^\x00-\x7F]' -and -not $HasUtf8Bom) { throw "PowerShell 5 incompatible encoding: $($File.Name)" }
             [void][scriptblock]::Create($Content)
         }
+    }
+
+    It 'ships the participant Unlim client without bundling Unlim' {
+        $ClientDirectory = Join-Path $ProjectRoot 'participant-client'
+        $Client = Get-Content -LiteralPath (Join-Path $ClientDirectory 'Palworld-Unlim-Client.ps1') -Raw -Encoding UTF8
+        if (-not (Test-Path (Join-Path $ClientDirectory 'Palworldに参加.cmd'))) { throw 'Participant launcher is missing.' }
+        if ($Client -notmatch '--connect' -or $Client -notmatch 'https://unlim\.cc/install\.ps1') { throw 'Participant client cannot connect or update from the official source.' }
+        if ($Client -match '--port\s+8989') { throw 'The Unlim internal port must not be used as the Palworld game port.' }
+        if (Get-ChildItem -LiteralPath $ClientDirectory -Filter 'unlim.exe' -Recurse -ErrorAction SilentlyContinue) { throw 'Unlim must not be bundled with this project.' }
     }
 
     It 'keeps the REST API on localhost' {
