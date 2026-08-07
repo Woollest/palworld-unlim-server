@@ -343,6 +343,8 @@ internal sealed class MainForm : Form
         var existingInstallation = FindUnlim();
         if (existingInstallation is not null && !ResolveUnlimProcessConflict("更新")) return;
 
+        if (existingInstallation is null && !await EnsureDefenderExclusionAsync()) return;
+
         SetBusy(true);
         SetStatus("Unlimを公式配布元から更新しています…", Color.DarkOrange);
         try
@@ -353,7 +355,7 @@ internal sealed class MainForm : Form
                 NoCache = true,
                 NoStore = true
             };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.4");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.5");
 
             var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             using var manifestResponse = await client.GetAsync($"https://api.zpw.jp/unlimmap?cachebust={cacheBust}");
@@ -401,6 +403,7 @@ internal sealed class MainForm : Form
 
                 Directory.CreateDirectory(installDirectory);
                 File.Move(staging, destination, overwrite: true);
+                AddInstallDirectoryToUserPath(installDirectory);
             }
             finally
             {
@@ -411,6 +414,10 @@ internal sealed class MainForm : Form
             var installed = FindUnlim();
             if (installed is null || !File.Exists(installed))
                 throw new InvalidOperationException("更新直後にUnlimが見つかりません。Windows Defenderが隔離した可能性があります。");
+            var installedVersion = await ReadUnlimVersionAsync(installed);
+            if (!string.Equals(installedVersion, version, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"インストール後の実行確認に失敗しました（期待: {version}, 実際: {installedVersion ?? "確認不能"}）。");
             SetStatus($"Unlim {version}への更新が完了しました。", Color.SeaGreen);
             WriteDiagnostic($"Installed and verified Unlim {version}.");
         }
@@ -424,6 +431,95 @@ internal sealed class MainForm : Form
         {
             SetBusy(false);
         }
+    }
+
+    private async Task<bool> EnsureDefenderExclusionAsync()
+    {
+        var installDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Unlim");
+        var answer = MessageBox.Show(
+            "Unlimを初めてインストールします。\n\n" +
+            "公式手順に従い、Windows Defenderの除外へUnlim専用フォルダーを追加します。" +
+            "この操作だけ管理者の確認画面が表示されます。\n\n続行しますか？",
+            "Unlim初回セットアップ", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+        if (answer != DialogResult.Yes) return false;
+
+        SetBusy(true);
+        SetStatus("管理者の確認を待っています…", Color.DarkOrange);
+        try
+        {
+            var escapedPath = installDirectory.Replace("'", "''");
+            var script = "$ErrorActionPreference='Stop';" +
+                         $"Add-MpPreference -ExclusionPath '{escapedPath}';" +
+                         $"if (-not ((Get-MpPreference).ExclusionPath -contains '{escapedPath}')) {{ exit 2 }}";
+            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+            var info = new ProcessStartInfo("powershell.exe")
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            info.ArgumentList.Add("-NoProfile");
+            info.ArgumentList.Add("-NonInteractive");
+            info.ArgumentList.Add("-ExecutionPolicy");
+            info.ArgumentList.Add("Bypass");
+            info.ArgumentList.Add("-EncodedCommand");
+            info.ArgumentList.Add(encoded);
+
+            using var process = Process.Start(info) ??
+                                throw new InvalidOperationException("管理者用セットアップを開始できませんでした。");
+            await process.WaitForExitAsync();
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(
+                    $"Windows Defenderの除外を確認できませんでした（終了コード: {process.ExitCode}）。");
+
+            WriteDiagnostic($"Confirmed Defender exclusion for {installDirectory}.");
+            SetStatus("管理者設定が完了しました。Unlimを取得します…", Color.SeaGreen);
+            return true;
+        }
+        catch (Win32Exception exception) when (exception.NativeErrorCode == 1223)
+        {
+            WriteDiagnostic("Administrator confirmation was cancelled.");
+            SetStatus("管理者の確認がキャンセルされました。", Color.Firebrick);
+            MessageBox.Show("管理者の確認がキャンセルされたため、Unlimをインストールしていません。",
+                Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+        catch (Exception exception)
+        {
+            WriteDiagnostic($"Defender exclusion setup failed: {exception}");
+            SetStatus("初回セットアップに失敗しました。", Color.Firebrick);
+            ShowOperationError("Windows Defenderの初回設定を完了できませんでした。", exception,
+                "管理者アカウントの確認が必要です。会社・学校のPCなど、管理者設定が禁止されている環境にはインストールできません。");
+            return false;
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private static void AddInstallDirectoryToUserPath(string installDirectory)
+    {
+        var current = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? string.Empty;
+        var entries = current.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (entries.Any(entry => string.Equals(
+                Path.GetFullPath(entry), Path.GetFullPath(installDirectory), StringComparison.OrdinalIgnoreCase))) return;
+        var updated = string.IsNullOrWhiteSpace(current)
+            ? installDirectory
+            : $"{current.TrimEnd(';')};{installDirectory}";
+        Environment.SetEnvironmentVariable("PATH", updated, EnvironmentVariableTarget.User);
+    }
+
+    private static async Task<string?> ReadUnlimVersionAsync(string executable)
+    {
+        using var process = StartProcess(executable, "--version", redirect: true);
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"Unlimを実行できませんでした: {error.Trim()}");
+        return output.Trim().Split('\n', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim();
     }
 
     private async Task ConnectAsync()
