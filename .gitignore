@@ -16,6 +16,8 @@ desktop/src-tauri/target/
 desktop/src-tauri/gen/
 desktop/src-tauri/icons/*
 !desktop/src-tauri/icons/icon.ico
+**/bin/
+**/obj/
 *.key
 private/
 

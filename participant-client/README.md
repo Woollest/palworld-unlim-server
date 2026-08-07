@@ -1,16 +1,18 @@
 # Palworld Unlim Client
 
-参加者向けのWindows簡易クライアントです。Discordの接続キーを入力すると、Unlim CLIを使ってPalworldサーバーへ接続します。
+参加者向けのWindowsアプリです。Discordの接続キーを入力すると、Unlim CLIを使ってPalworldサーバーへ接続します。通常は配布ZIP内の `PalworldUnlimClient.exe` だけで利用できます。
 
 ## 使い方
 
-1. `Palworldに参加.cmd`をダブルクリックします。
+1. `PalworldUnlimClient.exe`をダブルクリックします。
 2. Discordに掲載された接続キーを貼り付けます。
 3. `接続`を押します。
 4. アプリに表示されたアドレスをPalworldの専用サーバー接続欄へ入力します。
 5. 遊び終わったら`切断`を押します。
 
 Unlimが未導入の場合は、画面の案内から公式インストーラーを実行できます。`Unlimを更新`を押すと、公式の `https://unlim.cc/install.ps1` を利用して更新します。
+
+署名なしの開発版では、Windows SmartScreenが警告を表示する場合があります。配布元を確認したうえで「詳細情報」から実行してください。
 
 ## ポートについて
 
@@ -25,3 +27,11 @@ Unlimが未導入の場合は、画面の案内から公式インストーラー
 Powered by Unlim: https://unlim.cc/
 
 このクライアントはPocketpair, Inc.およびUnlimの公式製品ではありません。
+
+## 開発者向けビルド
+
+`.NET 10 SDK`を導入したWindowsで、プロジェクトルートから次を実行します。
+
+```powershell
+dotnet publish .\participant-client\src\PalworldUnlimClient.csproj -c Release -r win-x64 --self-contained true -o .\dist\participant-client-exe
+```

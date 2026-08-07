@@ -23,9 +23,13 @@
     It 'ships the participant Unlim client without bundling Unlim' {
         $ClientDirectory = Join-Path $ProjectRoot 'participant-client'
         $Client = Get-Content -LiteralPath (Join-Path $ClientDirectory 'Palworld-Unlim-Client.ps1') -Raw -Encoding UTF8
+        $NativeClient = Get-Content -LiteralPath (Join-Path $ClientDirectory 'src/Program.cs') -Raw -Encoding UTF8
+        $NativeProject = Get-Content -LiteralPath (Join-Path $ClientDirectory 'src/PalworldUnlimClient.csproj') -Raw -Encoding UTF8
         if (-not (Test-Path (Join-Path $ClientDirectory 'Palworldに参加.cmd'))) { throw 'Participant launcher is missing.' }
         if ($Client -notmatch '--connect' -or $Client -notmatch 'https://unlim\.cc/install\.ps1') { throw 'Participant client cannot connect or update from the official source.' }
         if ($Client -match '--port\s+8989') { throw 'The Unlim internal port must not be used as the Palworld game port.' }
+        if ($NativeClient -notmatch 'ArgumentList\.Add\("--connect"\)' -or $NativeClient -notmatch 'https://unlim\.cc/install\.ps1') { throw 'Native participant client cannot connect or update from the official source.' }
+        if ($NativeProject -notmatch '<PublishSingleFile>true</PublishSingleFile>' -or $NativeProject -notmatch '<SelfContained>true</SelfContained>') { throw 'Native participant client is not a standalone executable.' }
         if (Get-ChildItem -LiteralPath $ClientDirectory -Filter 'unlim.exe' -Recurse -ErrorAction SilentlyContinue) { throw 'Unlim must not be bundled with this project.' }
     }
 
