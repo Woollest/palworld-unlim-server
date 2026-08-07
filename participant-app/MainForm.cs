@@ -303,10 +303,18 @@ internal sealed class MainForm : Form
         if (portDetector is null) return;
         try { portDetector.ObserveNewListeners(); } catch { }
         var ports = portDetector.Candidates;
+        if (portDetector.HasAuthoritativePort)
+        {
+            portBox.Items.Clear();
+            foreach (var port in ports) portBox.Items.Add(port.ToString());
+            if (portDetector.RecommendedPort is int authoritativePort)
+                portBox.Text = authoritativePort.ToString();
+        }
         foreach (var port in ports)
             if (!portBox.Items.Contains(port.ToString())) portBox.Items.Add(port.ToString());
         if (ports.Count == 0) return;
-        if ((portBox.Text == "ポートを検出中" || string.IsNullOrWhiteSpace(portBox.Text)) &&
+        if (!portDetector.HasAuthoritativePort &&
+            (portBox.Text == "ポートを検出中" || string.IsNullOrWhiteSpace(portBox.Text)) &&
             portDetector.RecommendedPort is int recommended)
             portBox.Text = recommended.ToString();
         copyButton.Enabled = true;

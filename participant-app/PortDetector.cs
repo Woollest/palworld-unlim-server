@@ -23,6 +23,7 @@ internal sealed class PortDetector
     private readonly HashSet<int> baseline;
     private readonly Dictionary<int, int> candidates = [];
     private readonly HashSet<int> authoritativePorts = [];
+    private readonly DateTimeOffset startedAt = DateTimeOffset.UtcNow;
 
     internal PortDetector() => baseline = CaptureListeners();
 
@@ -30,6 +31,7 @@ internal sealed class PortDetector
     internal int? RecommendedPort => candidates.Count == 0
         ? null
         : candidates.OrderByDescending(pair => pair.Value).ThenByDescending(pair => pair.Key).First().Key;
+    internal bool HasAuthoritativePort => authoritativePorts.Count > 0;
 
     internal void ObserveOutput(string line)
     {
@@ -65,6 +67,7 @@ internal sealed class PortDetector
     internal void ObserveNewListeners()
     {
         if (authoritativePorts.Count > 0) return;
+        if (DateTimeOffset.UtcNow - startedAt < TimeSpan.FromSeconds(8)) return;
         foreach (var port in CaptureListeners().Except(baseline)) AddCandidate(port, priority: 10);
     }
 
@@ -73,11 +76,12 @@ internal sealed class PortDetector
     internal static void RunSelfTest()
     {
         var detector = new PortDetector();
+        detector.ObserveOutput("local port 64920");
         detector.ObserveOutput("\u001b[0m  8989/tcp → localhost:8989");
         detector.ObserveOutput("\u001b[36mAccess application on\u001b[0m 127.0.0.1:8989");
         detector.ObserveOutput("connected via TCP (host dialed us: 192.168.1.156:49159)");
         if (detector.RecommendedPort != 8989 || detector.Candidates.Count != 1 ||
-            detector.Candidates.Single() != 8989)
+            detector.Candidates.Single() != 8989 || !detector.HasAuthoritativePort)
             throw new InvalidOperationException("Authoritative Unlim port mapping self-test failed.");
         if (StripAnsi("\u001b[36mAccess\u001b[0m") != "Access")
             throw new InvalidOperationException("ANSI stripping self-test failed.");
