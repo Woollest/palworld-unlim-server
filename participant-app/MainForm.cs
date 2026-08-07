@@ -247,10 +247,11 @@ internal sealed class MainForm : Form
     {
         try
         {
-            portDetector?.ObserveOutput(line);
+            var clean = PortDetector.StripAnsi(line);
+            portDetector?.ObserveOutput(clean);
             BeginInvoke(() =>
             {
-                AppendLog(line);
+                AppendLog(clean);
                 RefreshDetectedPorts();
             });
         }

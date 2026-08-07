@@ -45,6 +45,10 @@ jobs:
             --self-contained true `
             -o dist/PalworldJoin
 
+      - name: Verify observed Unlim port mapping
+        shell: pwsh
+        run: ./dist/PalworldJoin/PalworldJoin.exe --self-test
+
       - name: Package preview
         shell: pwsh
         run: |

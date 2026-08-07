@@ -5,6 +5,12 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
+        if (Environment.GetCommandLineArgs().Contains("--self-test"))
+        {
+            PortDetector.RunSelfTest();
+            return;
+        }
+
         using var mutex = new Mutex(true, "Local\\PalworldJoin", out var firstInstance);
         if (!firstInstance)
         {
