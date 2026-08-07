@@ -49,18 +49,23 @@ jobs:
         shell: pwsh
         run: ./dist/PalworldJoin/PalworldJoin.exe --self-test
 
-      - name: Package preview
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
         shell: pwsh
         run: |
           $version = '${{ github.ref_name }}'.Replace('participant-preview-v', '')
-          $archive = "dist/Palworld-Join-PREVIEW-$version-win-x64.zip"
-          Compress-Archive `
-            -LiteralPath dist/PalworldJoin/PalworldJoin.exe,participant-app/README.md `
-            -DestinationPath $archive `
-            -CompressionLevel Optimal
-          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          Set-Content -LiteralPath "$archive.sha256" `
-            -Value "$hash  $([IO.Path]::GetFileName($archive))" `
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path -LiteralPath $compiler)) { throw 'Inno Setup compiler was not installed.' }
+          & $compiler "/DMyAppVersion=$version" participant-app/installer/PalworldJoin.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE." }
+          $installer = "dist/installer/Palworld-Join-Setup-PREVIEW-$version.exe"
+          if (-not (Test-Path -LiteralPath $installer)) { throw 'Installer was not generated.' }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath "$installer.sha256" `
+            -Value "$hash  $([IO.Path]::GetFileName($installer))" `
             -Encoding ascii
 
       - name: Create GitHub prerelease
@@ -70,8 +75,8 @@ jobs:
         run: |
           $version = '${{ github.ref_name }}'.Replace('participant-preview-v', '')
           gh release create '${{ github.ref_name }}' `
-            "dist/Palworld-Join-PREVIEW-$version-win-x64.zip" `
-            "dist/Palworld-Join-PREVIEW-$version-win-x64.zip.sha256" `
+            "dist/installer/Palworld-Join-Setup-PREVIEW-$version.exe" `
+            "dist/installer/Palworld-Join-Setup-PREVIEW-$version.exe.sha256" `
             --verify-tag `
             --prerelease `
             --title "Palworld Join PREVIEW v$version" `

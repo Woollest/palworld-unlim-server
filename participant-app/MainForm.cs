@@ -27,68 +27,83 @@ internal sealed class MainForm : Form
     {
         Directory.CreateDirectory(AppPaths.DataDirectory);
         Text = "Palworld Join";
-        ClientSize = new Size(700, 625);
-        MinimumSize = new Size(700, 625);
+        ClientSize = new Size(700, 740);
+        MinimumSize = new Size(700, 740);
         StartPosition = FormStartPosition.CenterScreen;
+        AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Yu Gothic UI", 10F);
-        BackColor = Color.FromArgb(247, 248, 250);
+        BackColor = Color.FromArgb(241, 244, 248);
 
-        var title = Label("Palworldサーバーに参加", 28, 22, 20F, FontStyle.Bold);
-        var subtitle = Label("Unlim CLIの導入・更新・接続をこの画面で行います。", 31, 68, 10F);
-        subtitle.ForeColor = Color.DimGray;
-        Controls.AddRange([title, subtitle]);
+        var header = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 92,
+            BackColor = Color.FromArgb(24, 72, 132)
+        };
+        var title = Label("Palworld Join", 24, 16, 21F, FontStyle.Bold);
+        title.ForeColor = Color.White;
+        var subtitle = Label("接続キーを入力するだけでPalworldサーバーへ参加できます", 27, 57, 10F);
+        subtitle.ForeColor = Color.FromArgb(220, 231, 246);
+        header.Controls.AddRange([title, subtitle]);
+        Controls.Add(header);
 
-        Controls.Add(Label("Unlim", 31, 111, 10F, FontStyle.Bold));
-        unlimStatus.SetBounds(98, 111, 410, 26);
+        var statusCard = Card(20, 112, 660, 72);
+        var statusTitle = Label("UNLIM", 18, 10, 8.5F, FontStyle.Bold);
+        statusTitle.ForeColor = Color.FromArgb(92, 105, 122);
+        unlimStatus.SetBounds(18, 35, 450, 26);
         unlimStatus.Text = "確認中…";
-        Controls.Add(unlimStatus);
-        ConfigureButton(installButton, "導入・更新", 535, 101, 130);
+        ConfigureButton(installButton, "更新を確認", 505, 15, 130);
         installButton.Click += async (_, _) => await InstallOrUpdateFromButtonAsync();
-        Controls.Add(installButton);
+        statusCard.Controls.AddRange([statusTitle, unlimStatus, installButton]);
+        Controls.Add(statusCard);
 
-        Controls.Add(Label("接続キー", 31, 164, 10F, FontStyle.Bold));
-        keyBox.SetBounds(34, 191, 631, 31);
+        var joinCard = Card(20, 201, 660, 210);
+        var joinTitle = Label("サーバーへ接続", 18, 14, 13F, FontStyle.Bold);
+        var keyLabel = Label("接続キー", 18, 52, 9F, FontStyle.Bold);
+        keyLabel.ForeColor = Color.FromArgb(70, 82, 98);
+        keyBox.SetBounds(18, 78, 624, 32);
         keyBox.Text = settings.SaveConnectionKey ? settings.ConnectionKey : string.Empty;
-        Controls.Add(keyBox);
+        keyBox.BorderStyle = BorderStyle.FixedSingle;
         saveKey.Text = "接続キーをこのPCに保存する";
         saveKey.Checked = settings.SaveConnectionKey;
         saveKey.AutoSize = true;
-        saveKey.SetBounds(34, 230, 260, 28);
-        Controls.Add(saveKey);
+        saveKey.SetBounds(18, 119, 260, 28);
 
-        ConfigureButton(connectButton, "接続", 34, 275, 160, Color.FromArgb(36, 104, 214), Color.White);
-        ConfigureButton(disconnectButton, "切断", 204, 275, 120);
+        ConfigureButton(connectButton, "接続する", 18, 157, 160, Color.FromArgb(36, 104, 214), Color.White);
+        ConfigureButton(disconnectButton, "切断", 188, 157, 110);
         disconnectButton.Enabled = false;
         connectButton.Click += (_, _) => Connect();
         disconnectButton.Click += (_, _) => Disconnect();
-        Controls.AddRange([connectButton, disconnectButton]);
-
-        connectionStatus.SetBounds(346, 285, 319, 26);
+        connectionStatus.SetBounds(320, 166, 320, 26);
         connectionStatus.Text = "未接続";
         connectionStatus.ForeColor = Color.DimGray;
-        Controls.Add(connectionStatus);
+        joinCard.Controls.AddRange([joinTitle, keyLabel, keyBox, saveKey, connectButton, disconnectButton, connectionStatus]);
+        Controls.Add(joinCard);
 
-        Controls.Add(Label("Palworldの接続先", 31, 344, 10F, FontStyle.Bold));
-        portBox.SetBounds(34, 372, 470, 32);
+        var addressCard = Card(20, 428, 660, 96);
+        var addressTitle = Label("PALWORLDの接続先", 18, 11, 8.5F, FontStyle.Bold);
+        addressTitle.ForeColor = Color.FromArgb(92, 105, 122);
+        portBox.SetBounds(18, 43, 445, 32);
         portBox.DropDownStyle = ComboBoxStyle.DropDown;
         portBox.Text = "ポートを検出中";
-        Controls.Add(portBox);
-        ConfigureButton(copyButton, "接続先をコピー", 515, 370, 150);
+        ConfigureButton(copyButton, "接続先をコピー", 475, 39, 160);
         copyButton.Enabled = false;
         copyButton.Click += (_, _) => CopyAddress();
-        Controls.Add(copyButton);
+        addressCard.Controls.AddRange([addressTitle, portBox, copyButton]);
+        Controls.Add(addressCard);
 
-        var detail = Label("詳細ログ", 31, 430, 10F, FontStyle.Bold);
+        var detail = Label("詳細ログ", 24, 548, 10F, FontStyle.Bold);
         Controls.Add(detail);
-        logBox.SetBounds(34, 458, 631, 125);
+        logBox.SetBounds(20, 577, 660, 125);
         logBox.Multiline = true;
         logBox.ReadOnly = true;
         logBox.ScrollBars = ScrollBars.Vertical;
         logBox.BackColor = Color.White;
+        logBox.BorderStyle = BorderStyle.FixedSingle;
         logBox.Font = new Font("Consolas", 9F);
         Controls.Add(logBox);
 
-        var attribution = Label("Powered by Unlim — 非公式参加ツール", 454, 593, 8.5F);
+        var attribution = Label("Powered by Unlim  •  非公式参加ツール  •  PREVIEW", 400, 712, 8.5F);
         attribution.ForeColor = Color.DimGray;
         Controls.Add(attribution);
 
@@ -393,12 +408,24 @@ internal sealed class MainForm : Form
         Font = new Font("Yu Gothic UI", size, style)
     };
 
+    private static Panel Card(int x, int y, int width, int height) => new()
+    {
+        Location = new Point(x, y),
+        Size = new Size(width, height),
+        BackColor = Color.White,
+        BorderStyle = BorderStyle.FixedSingle
+    };
+
     private static void ConfigureButton(Button button, string text, int x, int y, int width,
         Color? backColor = null, Color? foreColor = null)
     {
         button.Text = text;
         button.SetBounds(x, y, width, 42);
         button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = 0;
+        button.Cursor = Cursors.Hand;
+        button.BackColor = backColor ?? Color.FromArgb(229, 234, 241);
+        button.ForeColor = foreColor ?? Color.FromArgb(35, 45, 60);
         if (backColor.HasValue) button.BackColor = backColor.Value;
         if (foreColor.HasValue) button.ForeColor = foreColor.Value;
     }

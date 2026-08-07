@@ -26,12 +26,14 @@
         $Session = Get-Content -LiteralPath (Join-Path $AppDirectory 'UnlimSession.cs') -Raw -Encoding UTF8
         $Detector = Get-Content -LiteralPath (Join-Path $AppDirectory 'PortDetector.cs') -Raw -Encoding UTF8
         $Readme = Get-Content -LiteralPath (Join-Path $AppDirectory 'README.md') -Raw -Encoding UTF8
+        $Installer = Get-Content -LiteralPath (Join-Path $AppDirectory 'installer/PalworldJoin.iss') -Raw -Encoding UTF8
         if ($Manager -notmatch 'api\.zpw\.jp/unlimmap' -or $Manager -notmatch 'SHA256\.HashDataAsync' -or $Manager -notmatch 'unlim\.previous\.exe') { throw 'Participant app installation and rollback are not verified.' }
         if ($Manager -notmatch 'FindRunningUnlimProcessIds' -or $Manager -notmatch 'UnlimInUseException' -or $Manager -notmatch 'ReplaceExecutableWithRetryAsync' -or $Manager -notmatch 'string\.Equals\(installedVersion, manifest\.Version') { throw 'Participant app may overwrite a running or already-current Unlim executable.' }
         if ($Session -notmatch 'ArgumentList\.Add\("--connect"\)' -or $Session -notmatch 'process\.Kill\(entireProcessTree: true\)') { throw 'Participant app is not a thin CLI wrapper.' }
         if ($Detector -match '8989.*(?:exclude|ignore)' -or $Detector -notmatch 'GetActiveUdpListeners' -or $Detector -notmatch 'RecommendedPort') { throw 'Participant app port detection is fixed or incomplete.' }
         if ($Detector -notmatch 'Access\\s\+application' -or $Detector -notmatch '\(\?:→\|->\)' -or $Detector -notmatch 'authoritativePorts' -or $Detector -notmatch 'StripAnsi' -or $Detector -notmatch 'TimeSpan\.FromSeconds\(8\)') { throw 'Participant app cannot identify authoritative Unlim mappings.' }
         if ($Readme -notmatch '動作確認専用のプレリリース' -or $Readme -notmatch 'Powered by Unlim') { throw 'Participant app development and attribution policy is incomplete.' }
+        if ($Installer -notmatch 'PrivilegesRequired=lowest' -or $Installer -notmatch 'desktopicon' -or $Installer -notmatch '\{group\}\\Palworld Join' -or $Installer -notmatch 'UninstallDisplayIcon') { throw 'Participant app installer and shortcuts are incomplete.' }
     }
 
     It 'keeps the REST API on localhost' {
