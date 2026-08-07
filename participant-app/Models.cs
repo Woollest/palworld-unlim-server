@@ -31,3 +31,9 @@ internal sealed class UnlimHash
 }
 
 internal sealed record UpdateStatus(string? InstalledVersion, string LatestVersion, bool UpdateAvailable);
+
+internal sealed class UnlimInUseException(IReadOnlyCollection<int> processIds)
+    : IOException($"Unlimが起動中です（PID: {string.Join(", ", processIds)}）。")
+{
+    internal IReadOnlyCollection<int> ProcessIds { get; } = processIds;
+}

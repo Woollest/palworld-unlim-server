@@ -32,6 +32,14 @@ internal sealed class UnlimManager
 
         progress?.Report("公式の最新版情報を確認しています…");
         var manifest = await GetManifestAsync(cancellationToken);
+        if (!firstInstall && IsInstalled)
+        {
+            var installedVersion = await ReadVersionAsync(cancellationToken);
+            if (string.Equals(installedVersion, manifest.Version, StringComparison.OrdinalIgnoreCase))
+                return installedVersion;
+            var running = FindRunningUnlimProcessIds();
+            if (running.Count > 0) throw new UnlimInUseException(running);
+        }
         var platform = RuntimeInformation.OSArchitecture == Architecture.Arm64
             ? "windows_arm64"
             : "windows_amd64";
@@ -68,7 +76,7 @@ internal sealed class UnlimManager
 
             if (File.Exists(AppPaths.UnlimExecutable))
                 File.Copy(AppPaths.UnlimExecutable, backup, overwrite: true);
-            File.Move(staging, AppPaths.UnlimExecutable, overwrite: true);
+            await ReplaceExecutableWithRetryAsync(staging, cancellationToken);
 
             progress?.Report("Unlimを実行してバージョンを確認しています…");
             var installed = await ReadVersionAsync(cancellationToken);
@@ -86,6 +94,52 @@ internal sealed class UnlimManager
         {
             if (File.Exists(staging)) File.Delete(staging);
         }
+    }
+
+    internal static IReadOnlyCollection<int> FindRunningUnlimProcessIds()
+    {
+        var result = new List<int>();
+        foreach (var process in Process.GetProcessesByName("unlim"))
+        {
+            try
+            {
+                process.Refresh();
+                if (process.HasExited) continue;
+                var path = process.MainModule?.FileName;
+                if (path is null || string.Equals(Path.GetFullPath(path),
+                        Path.GetFullPath(AppPaths.UnlimExecutable), StringComparison.OrdinalIgnoreCase))
+                    result.Add(process.Id);
+            }
+            catch
+            {
+                result.Add(process.Id);
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+        return result;
+    }
+
+    private static async Task ReplaceExecutableWithRetryAsync(string staging,
+        CancellationToken cancellationToken)
+    {
+        IOException? lastError = null;
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            try
+            {
+                File.Move(staging, AppPaths.UnlimExecutable, overwrite: true);
+                return;
+            }
+            catch (IOException exception)
+            {
+                lastError = exception;
+                if (attempt < 3) await Task.Delay(500, cancellationToken);
+            }
+        }
+        throw lastError ?? new IOException("Unlimを置き換えられませんでした。");
     }
 
     internal async Task<string> ReadVersionAsync(CancellationToken cancellationToken = default)
@@ -123,7 +177,7 @@ internal sealed class UnlimManager
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
         client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
             { NoCache = true, NoStore = true };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldJoin/0.1.1");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldJoin/0.1.2");
         return client;
     }
 

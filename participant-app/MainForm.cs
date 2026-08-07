@@ -166,7 +166,37 @@ internal sealed class MainForm : Form
 
     private async Task InstallOrUpdateFromButtonAsync()
     {
-        await InstallOrUpdateAsync(firstInstall: !manager.IsInstalled);
+        if (!manager.IsInstalled)
+        {
+            await InstallOrUpdateAsync(firstInstall: true);
+            return;
+        }
+
+        SetBusy(true);
+        unlimStatus.Text = "更新を確認中…";
+        try
+        {
+            var status = await manager.CheckForUpdateAsync();
+            if (!status.UpdateAvailable)
+            {
+                unlimStatus.Text = $"導入済み {status.InstalledVersion}（最新版）";
+                unlimStatus.ForeColor = Color.SeaGreen;
+                AppendLog($"Unlim {status.InstalledVersion}は最新版です。更新処理は行いませんでした。");
+                return;
+            }
+            await InstallOrUpdateAsync(firstInstall: false);
+        }
+        catch (Exception exception)
+        {
+            unlimStatus.Text = "更新確認失敗";
+            unlimStatus.ForeColor = Color.Firebrick;
+            AppendLog($"更新確認エラー: {exception}");
+            MessageBox.Show(exception.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
     }
 
     private async Task InstallOrUpdateAsync(bool firstInstall)
@@ -189,6 +219,16 @@ internal sealed class MainForm : Form
             unlimStatus.Text = "セットアップ中止";
             unlimStatus.ForeColor = Color.DarkOrange;
             AppendLog(exception.Message);
+        }
+        catch (UnlimInUseException exception)
+        {
+            unlimStatus.Text = "Unlim使用中のため更新保留";
+            unlimStatus.ForeColor = Color.DarkOrange;
+            AppendLog($"更新保留: {exception.Message}");
+            MessageBox.Show(
+                $"{exception.Message}\n\n接続またはサーバー公開を終了してから更新してください。" +
+                "このアプリから他のUnlimを強制終了することはありません。",
+                "Unlim使用中", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         catch (Exception exception)
         {
