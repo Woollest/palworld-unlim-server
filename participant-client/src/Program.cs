@@ -43,11 +43,13 @@ internal sealed class MainForm : Form
     private readonly Button connectButton = new();
     private readonly Button disconnectButton = new();
     private readonly Button updateButton = new();
+    private readonly Button repairButton = new();
     private Process? unlimProcess;
     private bool closing;
 
     private string SettingsPath => Path.Combine(appDataDirectory, "settings.json");
     private string LogPath => Path.Combine(appDataDirectory, "unlim-client.log");
+    private string DiagnosticLogPath => Path.Combine(appDataDirectory, "app-diagnostics.log");
 
     public MainForm()
     {
@@ -72,12 +74,14 @@ internal sealed class MainForm : Form
         ConfigureButton(connectButton, "接続", 34, 184, 150, Color.FromArgb(36, 104, 214), Color.White);
         ConfigureButton(disconnectButton, "切断", 194, 184, 110, SystemColors.Control, Color.Black);
         ConfigureButton(updateButton, "Unlimを更新", 314, 184, 150, SystemColors.Control, Color.Black);
+        ConfigureButton(repairButton, "環境修復", 474, 184, 88, SystemColors.Control, Color.Black);
         disconnectButton.Enabled = false;
         connectButton.Click += async (_, _) => await ConnectAsync();
         disconnectButton.Click += (_, _) => Disconnect();
         updateButton.Click += async (_, _) => await InstallOrUpdateAsync();
+        repairButton.Click += async (_, _) => await RepairEnvironmentAsync();
 
-        Controls.AddRange([connectButton, disconnectButton, updateButton]);
+        Controls.AddRange([connectButton, disconnectButton, updateButton, repairButton]);
         Controls.Add(MakeLabel("状態", 31, 253));
         statusLabel.SetBounds(94, 253, 465, 24);
         statusLabel.Text = "未接続";
@@ -142,9 +146,28 @@ internal sealed class MainForm : Form
     private IReadOnlyList<Process> FindOtherUnlimProcesses()
     {
         var childId = unlimProcess is { HasExited: false } ? unlimProcess.Id : -1;
-        return Process.GetProcessesByName("unlim")
-            .Where(process => process.Id != childId)
-            .ToArray();
+        var result = new List<Process>();
+        foreach (var process in Process.GetProcessesByName("unlim"))
+        {
+            try
+            {
+                process.Refresh();
+                if (process.Id != childId && !process.HasExited) result.Add(process);
+                else process.Dispose();
+            }
+            catch
+            {
+                process.Dispose();
+            }
+        }
+        return result;
+    }
+
+    private string DescribeProcess(Process process)
+    {
+        var path = "実行場所を確認できません（管理者権限で起動している可能性）";
+        try { path = process.MainModule?.FileName ?? path; } catch { }
+        return $"PID {process.Id}: {path}";
     }
 
     private bool ResolveUnlimProcessConflict(string operation)
@@ -152,14 +175,30 @@ internal sealed class MainForm : Form
         var processes = FindOtherUnlimProcesses();
         if (processes.Count == 0) return true;
 
+        Thread.Sleep(250);
+        var liveProcesses = processes.Where(process =>
+        {
+            try { process.Refresh(); return !process.HasExited; } catch { return false; }
+        }).ToArray();
+        foreach (var ended in processes.Except(liveProcesses)) ended.Dispose();
+        if (liveProcesses.Length == 0) return true;
+
+        var details = string.Join(Environment.NewLine, liveProcesses.Select(DescribeProcess));
+        WriteDiagnostic($"Detected Unlim process conflict during {operation}:{Environment.NewLine}{details}");
+
         var answer = MessageBox.Show(
-            $"別のUnlimアプリまたはCLIが{processes.Count}個起動しています。\n" +
+            $"別のUnlimアプリまたはCLIが{liveProcesses.Length}個起動しています。\n" +
             $"このままでは{operation}できません。既存のUnlimを終了しますか？\n\n" +
+            $"{details}\n\n" +
             "ホストとしてUnlimを使用しているPCでは［いいえ］を選んでください。",
             "Unlimがすでに起動しています", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-        if (answer != DialogResult.Yes) return false;
+        if (answer != DialogResult.Yes)
+        {
+            foreach (var process in liveProcesses) process.Dispose();
+            return false;
+        }
 
-        foreach (var process in processes)
+        foreach (var process in liveProcesses)
         {
             try
             {
@@ -191,6 +230,84 @@ internal sealed class MainForm : Form
             return false;
         }
         return true;
+    }
+
+    private async Task RepairEnvironmentAsync()
+    {
+        if (unlimProcess is { HasExited: false })
+        {
+            MessageBox.Show("先に［切断］を押してください。", Text,
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var cliDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Unlim");
+        var guiDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "unlim");
+        var existing = new[] { cliDirectory, guiDirectory }.Where(Directory.Exists).ToArray();
+        var detected = FindOtherUnlimProcesses();
+        var processDescription = detected.Count == 0
+            ? "起動中のUnlimは検出されませんでした。"
+            : string.Join(Environment.NewLine, detected.Select(DescribeProcess));
+        foreach (var process in detected) process.Dispose();
+        var folderDescription = existing.Length == 0
+            ? "残存フォルダーは検出されませんでした。"
+            : string.Join(Environment.NewLine, existing);
+
+        var answer = MessageBox.Show(
+            "Unlim環境を修復します。\n\n" +
+            $"検出プロセス:\n{processDescription}\n\n検出フォルダー:\n{folderDescription}\n\n" +
+            "起動中のUnlimを終了し、上記のUnlim専用フォルダーを削除してから公式版を再インストールします。続行しますか？",
+            "Unlim環境修復", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (answer != DialogResult.Yes) return;
+
+        SetBusy(true);
+        SetStatus("Unlim環境を修復しています…", Color.DarkOrange);
+        try
+        {
+            if (!ResolveUnlimProcessConflict("環境修復")) return;
+            DeleteUnlimDirectory(cliDirectory,
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+            DeleteUnlimDirectory(guiDirectory,
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+            WriteDiagnostic("Removed detected Unlim installation remnants.");
+            SetStatus("残存環境を削除しました。公式版を再導入します…", Color.DarkOrange);
+        }
+        catch (Exception exception)
+        {
+            WriteDiagnostic($"Environment repair failed: {exception}");
+            SetStatus("環境修復に失敗しました。", Color.Firebrick);
+            ShowOperationError("Unlimの残存環境を削除できませんでした。", exception);
+            return;
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+
+        await InstallOrUpdateAsync();
+    }
+
+    private static void DeleteUnlimDirectory(string target, string expectedParent)
+    {
+        var fullTarget = Path.GetFullPath(target).TrimEnd(Path.DirectorySeparatorChar);
+        var fullParent = Path.GetFullPath(expectedParent).TrimEnd(Path.DirectorySeparatorChar);
+        if (!string.Equals(Path.GetDirectoryName(fullTarget), fullParent,
+                StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(Path.GetFileName(fullTarget), "Unlim", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"安全確認に失敗したため削除しませんでした: {fullTarget}");
+        if (Directory.Exists(fullTarget)) Directory.Delete(fullTarget, recursive: true);
+    }
+
+    private void WriteDiagnostic(string message)
+    {
+        try
+        {
+            File.AppendAllText(DiagnosticLogPath,
+                $"[{DateTimeOffset.Now:O}] {message}{Environment.NewLine}", Encoding.UTF8);
+        }
+        catch { }
     }
 
     private async Task RefreshVersionAsync()
@@ -235,7 +352,7 @@ internal sealed class MainForm : Form
                 NoCache = true,
                 NoStore = true
             };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.2");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.3");
 
             var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             using var manifestResponse = await client.GetAsync($"https://api.zpw.jp/unlimmap?cachebust={cacheBust}");
@@ -294,9 +411,11 @@ internal sealed class MainForm : Form
             if (installed is null || !File.Exists(installed))
                 throw new InvalidOperationException("更新直後にUnlimが見つかりません。Windows Defenderが隔離した可能性があります。");
             SetStatus($"Unlim {version}への更新が完了しました。", Color.SeaGreen);
+            WriteDiagnostic($"Installed and verified Unlim {version}.");
         }
         catch (Exception exception)
         {
+            WriteDiagnostic($"Unlim update failed: {exception}");
             SetStatus("更新に失敗しました。", Color.Firebrick);
             ShowOperationError("Unlimを更新できませんでした。", exception);
         }
@@ -388,7 +507,8 @@ internal sealed class MainForm : Form
         };
 
         MessageBox.Show($"{heading}\n\n{detail}\n\n詳細:\n{exception.Message}\n\n" +
-                        $"ログ: {LogPath}", Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        $"接続ログ: {LogPath}\n診断ログ: {DiagnosticLogPath}", Text,
+            MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 
     private void OnUnlimOutput(object sender, DataReceivedEventArgs eventArgs)
@@ -424,6 +544,7 @@ internal sealed class MainForm : Form
         connectButton.Enabled = true;
         disconnectButton.Enabled = false;
         updateButton.Enabled = true;
+        repairButton.Enabled = true;
         SetStatus("未接続", Color.DimGray);
     }
 
@@ -433,6 +554,7 @@ internal sealed class MainForm : Form
         connectButton.Enabled = true;
         disconnectButton.Enabled = false;
         updateButton.Enabled = true;
+        repairButton.Enabled = true;
         SetStatus("切断されました。再接続できます。", Color.Firebrick);
     }
 
@@ -440,6 +562,7 @@ internal sealed class MainForm : Form
     {
         updateButton.Enabled = !busy;
         connectButton.Enabled = !busy;
+        repairButton.Enabled = !busy;
     }
 
     private void SetStatus(string text, Color color)

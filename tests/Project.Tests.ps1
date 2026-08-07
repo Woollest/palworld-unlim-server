@@ -30,6 +30,7 @@
         if ($Client -match '--port\s+8989') { throw 'The Unlim internal port must not be used as the Palworld game port.' }
         if ($NativeClient -notmatch 'ArgumentList\.Add\("--connect"\)' -or $NativeClient -notmatch 'https://api\.zpw\.jp/unlimmap' -or $NativeClient -notmatch 'SHA256\.HashDataAsync' -or $NativeClient -notmatch 'expectedSize') { throw 'Native participant client cannot securely connect or update from the official source.' }
         if ($NativeClient -notmatch 'FindOtherUnlimProcesses' -or $NativeClient -notmatch 'ResolveUnlimProcessConflict' -or $NativeClient -notmatch 'UnauthorizedAccessException' -or $NativeClient -notmatch '管理者として実行') { throw 'Native participant client does not diagnose process conflicts and permission failures.' }
+        if ($NativeClient -notmatch 'RepairEnvironmentAsync' -or $NativeClient -notmatch 'DeleteUnlimDirectory' -or $NativeClient -notmatch 'app-diagnostics\.log' -or $NativeClient -notmatch 'PID \{process\.Id\}') { throw 'Native participant client cannot safely repair and diagnose stale Unlim installations.' }
         if ($NativeProject -notmatch '<PublishSingleFile>true</PublishSingleFile>' -or $NativeProject -notmatch '<SelfContained>true</SelfContained>') { throw 'Native participant client is not a standalone executable.' }
         if (Get-ChildItem -LiteralPath $ClientDirectory -Filter 'unlim.exe' -Recurse -ErrorAction SilentlyContinue) { throw 'Unlim must not be bundled with this project.' }
     }
