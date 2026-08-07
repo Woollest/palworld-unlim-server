@@ -20,6 +20,18 @@
         }
     }
 
+    It 'keeps the local participant app thin, verified and port-agnostic' {
+        $AppDirectory = Join-Path $ProjectRoot 'participant-app'
+        $Manager = Get-Content -LiteralPath (Join-Path $AppDirectory 'UnlimManager.cs') -Raw -Encoding UTF8
+        $Session = Get-Content -LiteralPath (Join-Path $AppDirectory 'UnlimSession.cs') -Raw -Encoding UTF8
+        $Detector = Get-Content -LiteralPath (Join-Path $AppDirectory 'PortDetector.cs') -Raw -Encoding UTF8
+        $Readme = Get-Content -LiteralPath (Join-Path $AppDirectory 'README.md') -Raw -Encoding UTF8
+        if ($Manager -notmatch 'api\.zpw\.jp/unlimmap' -or $Manager -notmatch 'SHA256\.HashDataAsync' -or $Manager -notmatch 'unlim\.previous\.exe') { throw 'Participant app installation and rollback are not verified.' }
+        if ($Session -notmatch 'ArgumentList\.Add\("--connect"\)' -or $Session -notmatch 'process\.Kill\(entireProcessTree: true\)') { throw 'Participant app is not a thin CLI wrapper.' }
+        if ($Detector -match '8989.*(?:exclude|ignore)' -or $Detector -notmatch 'GetActiveUdpListeners' -or $Detector -notmatch 'RecommendedPort') { throw 'Participant app port detection is fixed or incomplete.' }
+        if ($Readme -notmatch 'GitHub Releasesでは配布しません' -or $Readme -notmatch 'Powered by Unlim') { throw 'Participant app development and attribution policy is incomplete.' }
+    }
+
     It 'keeps the REST API on localhost' {
         $Compose = Get-Content -LiteralPath (Join-Path $ProjectRoot 'compose.yaml') -Raw
         if ($Compose -notmatch '127\.0\.0\.1:\$\{PALWORLD_REST_PORT:-8212\}:8212/tcp') { throw 'REST API is not bound to localhost.' }
