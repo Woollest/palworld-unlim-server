@@ -340,7 +340,8 @@ internal sealed class MainForm : Form
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-        if (!ResolveUnlimProcessConflict("更新")) return;
+        var existingInstallation = FindUnlim();
+        if (existingInstallation is not null && !ResolveUnlimProcessConflict("更新")) return;
 
         SetBusy(true);
         SetStatus("Unlimを公式配布元から更新しています…", Color.DarkOrange);
@@ -352,7 +353,7 @@ internal sealed class MainForm : Form
                 NoCache = true,
                 NoStore = true
             };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.3");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldUnlimClient/0.1.4");
 
             var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             using var manifestResponse = await client.GetAsync($"https://api.zpw.jp/unlimmap?cachebust={cacheBust}");
