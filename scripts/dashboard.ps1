@@ -154,12 +154,19 @@ function Get-PlayerAccessDirectory {
 
 function Write-HttpResponse {
     param($Context, [int]$StatusCode, [string]$ContentType, [byte[]]$Body)
-    $Context.Response.StatusCode = $StatusCode
-    $Context.Response.ContentType = $ContentType
-    $Context.Response.ContentLength64 = $Body.Length
-    $Context.Response.Headers['Cache-Control'] = 'no-store'
-    $Context.Response.OutputStream.Write($Body, 0, $Body.Length)
-    $Context.Response.Close()
+    try {
+        $Context.Response.StatusCode = $StatusCode
+        $Context.Response.ContentType = $ContentType
+        $Context.Response.ContentLength64 = $Body.Length
+        $Context.Response.Headers['Cache-Control'] = 'no-store'
+        $Context.Response.OutputStream.Write($Body, 0, $Body.Length)
+    }
+    catch [InvalidOperationException] { return }
+    catch [IO.IOException] { return }
+    catch [Net.HttpListenerException] { return }
+    finally {
+        try { $Context.Response.Close() } catch {}
+    }
 }
 
 function Write-JsonResponse {
@@ -625,7 +632,12 @@ try {
             Write-HttpResponse -Context $Context -StatusCode 200 -ContentType $ContentType -Body ([IO.File]::ReadAllBytes($FilePath))
         }
         catch {
-            if ($Context.Response.OutputStream.CanWrite) { Write-JsonResponse -Context $Context -StatusCode 500 -Value @{ error = 'Dashboard request failed.' } }
+            try {
+                if ($Context.Response.OutputStream.CanWrite) { Write-JsonResponse -Context $Context -StatusCode 500 -Value @{ error = 'Dashboard request failed.' } }
+            }
+            catch [InvalidOperationException] {}
+            catch [IO.IOException] {}
+            catch [Net.HttpListenerException] {}
         }
     }
 }

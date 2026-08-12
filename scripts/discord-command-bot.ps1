@@ -49,6 +49,7 @@ $LastMessagePath = Join-Path $RuntimeDir "discord-command-last-message-$ChannelI
 $ConfirmationPath = Join-Path $RuntimeDir 'discord-command-confirmations.json'
 $Headers = @{ Authorization = "Bot $Token"; 'User-Agent' = 'PalOps/1.0' }
 $ApiBase = 'https://discord.com/api/v10'
+$ConsecutiveFailures = 0
 
 function Invoke-DiscordCommandApi {
     param([string]$Method, [string]$Uri, $Body = $null)
@@ -168,7 +169,14 @@ try {
                 }
             }
         }
-        catch { Add-Content -LiteralPath (Join-Path $ProjectDir 'logs\discord-command-error.log') -Value "[$(Get-Date -Format o)] line $($_.InvocationInfo.ScriptLineNumber): $($_.Exception.Message)" }
+        catch {
+            $ConsecutiveFailures++
+            $BackoffSeconds = [Math]::Min(300, 5 * [Math]::Pow(2, [Math]::Min(6, $ConsecutiveFailures - 1)))
+            Add-Content -LiteralPath (Join-Path $ProjectDir 'logs\discord-command-error.log') -Value "[$(Get-Date -Format o)] retry in $([int]$BackoffSeconds)s, line $($_.InvocationInfo.ScriptLineNumber): $($_.Exception.Message)"
+            Start-Sleep -Seconds ([int]$BackoffSeconds)
+            continue
+        }
+        $ConsecutiveFailures = 0
         Start-Sleep -Seconds 5
     }
 }

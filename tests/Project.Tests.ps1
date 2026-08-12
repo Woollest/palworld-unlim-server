@@ -41,6 +41,13 @@
         if ($Compose -notmatch '127\.0\.0\.1:\$\{PALWORLD_REST_PORT:-8212\}:8212/tcp') { throw 'REST API is not bound to localhost.' }
     }
 
+    It 'survives dashboard client disconnects and backs off Discord failures' {
+        $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw
+        $Bot = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/discord-command-bot.ps1') -Raw
+        if ($Dashboard -notmatch 'catch \[InvalidOperationException\]' -or $Dashboard -notmatch 'catch \[Net\.HttpListenerException\]') { throw 'Dashboard response disconnect handling is incomplete.' }
+        if ($Bot -notmatch '\$ConsecutiveFailures\+\+' -or $Bot -notmatch '\[Math\]::Min\(300') { throw 'Discord command polling has no bounded exponential backoff.' }
+    }
+
     It 'keeps the PalOps dashboard on localhost' {
         $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw
         if ($Dashboard -notmatch 'http://127\.0\.0\.1:\$Port/') { throw 'Dashboard is not bound to localhost.' }
