@@ -12,7 +12,7 @@ Windows、Docker Desktop、Palworld公式Dockerイメージ、Unlim CLIを組み
 | アプリ | 対象 | ダウンロードするファイル |
 |---|---|---|
 | **PalOps v1.3.0** | サーバー管理者 | [管理者向けRelease](https://github.com/Woollest/palworld-unlim-server/releases/tag/v1.3.0)の`PalOps_1.3.0_x64-setup.exe` |
-| **Palworld Join v1.0.1** | ゲーム参加者 | [参加者向けRelease](https://github.com/Woollest/palworld-unlim-server/releases/tag/participant-v1.0.1)の`Palworld-Join-Setup-1.0.1.exe` |
+| **Palworld Join v1.0.2** | ゲーム参加者 | [参加者向けRelease](https://github.com/Woollest/palworld-unlim-server/releases/tag/participant-v1.0.2)の`Palworld-Join-Setup-1.0.2.exe` |
 
 どちらも[GitHub Releases](https://github.com/Woollest/palworld-unlim-server/releases)から取得します。コード署名はないためWindowsの警告が表示される場合があります。必ず本リポジトリのReleaseからダウンロードしてください。
 
@@ -164,7 +164,7 @@ DiscordのAdministrator権限を持つユーザーは、2分で失効する確�
 
 参加者はPowerShellやUnlim CLIを直接操作せず、正式版の**Palworld Join**を使用します。
 
-1. [Palworld Join v1.0.1 Release](https://github.com/Woollest/palworld-unlim-server/releases/tag/participant-v1.0.1)から`Palworld-Join-Setup-1.0.1.exe`をダウンロードする
+1. [Palworld Join v1.0.2 Release](https://github.com/Woollest/palworld-unlim-server/releases/tag/participant-v1.0.2)から`Palworld-Join-Setup-1.0.2.exe`をダウンロードする
 2. セットアップを実行し、Palworld Joinを起動する
 3. 管理者から受け取った接続キーを入力して`接続する`を押す
 4. 表示された`127.0.0.1:ポート番号`を`接続先をコピー`でコピーする

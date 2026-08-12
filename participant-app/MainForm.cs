@@ -34,7 +34,8 @@ internal sealed class MainForm : Form
         Directory.CreateDirectory(AppPaths.DataDirectory);
         Text = "Palworld Join";
         ClientSize = new Size(700, 740);
-        MinimumSize = new Size(700, 740);
+        FormBorderStyle = FormBorderStyle.FixedSingle;
+        MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Yu Gothic UI", 10F);
@@ -108,7 +109,10 @@ internal sealed class MainForm : Form
         logBox.Font = new Font("Consolas", 9F);
         Controls.Add(logBox);
 
-        attributionLabel = Label("Powered by Unlim  •  非公式参加ツール", 470, 712, 8.5F);
+        attributionLabel = Label("Powered by Unlim  •  非公式参加ツール", 20, 710, 8.5F);
+        attributionLabel.AutoSize = false;
+        attributionLabel.SetBounds(20, 710, 660, 22);
+        attributionLabel.TextAlign = ContentAlignment.MiddleRight;
         Controls.Add(attributionLabel);
 
         ApplyTheme();
