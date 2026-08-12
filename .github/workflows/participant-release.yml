@@ -1,15 +1,15 @@
-name: Participant App Preview
+name: Participant App Release
 
 on:
   push:
     tags:
-      - "participant-preview-v*.*.*"
+      - "participant-v*.*.*"
 
 permissions:
   contents: write
 
 jobs:
-  preview:
+  release:
     runs-on: windows-latest
     timeout-minutes: 15
 
@@ -22,10 +22,10 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Validate preview version
+      - name: Validate release version
         shell: pwsh
         run: |
-          $tagVersion = '${{ github.ref_name }}'.Replace('participant-preview-v', '')
+          $tagVersion = '${{ github.ref_name }}'.Replace('participant-v', '')
           [xml]$project = Get-Content participant-app/PalworldJoin.csproj -Raw
           $projectVersion = [string]$project.Project.PropertyGroup.Version
           if ($projectVersion -ne $tagVersion) {
@@ -36,7 +36,7 @@ jobs:
         shell: pwsh
         run: ./scripts/test-project.ps1
 
-      - name: Build standalone Windows preview
+      - name: Build standalone Windows app
         shell: pwsh
         run: |
           dotnet publish participant-app/PalworldJoin.csproj `
@@ -56,28 +56,25 @@ jobs:
       - name: Build Windows installer
         shell: pwsh
         run: |
-          $version = '${{ github.ref_name }}'.Replace('participant-preview-v', '')
+          $version = '${{ github.ref_name }}'.Replace('participant-v', '')
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path -LiteralPath $compiler)) { throw 'Inno Setup compiler was not installed.' }
           & $compiler "/DMyAppVersion=$version" participant-app/installer/PalworldJoin.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE." }
-          $installer = "dist/installer/Palworld-Join-Setup-PREVIEW-$version.exe"
+          $installer = "dist/installer/Palworld-Join-Setup-$version.exe"
           if (-not (Test-Path -LiteralPath $installer)) { throw 'Installer was not generated.' }
           $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
-          Set-Content -LiteralPath "$installer.sha256" `
-            -Value "$hash  $([IO.Path]::GetFileName($installer))" `
-            -Encoding ascii
+          Set-Content -LiteralPath "$installer.sha256" -Value "$hash  $([IO.Path]::GetFileName($installer))" -Encoding ascii
 
-      - name: Create GitHub prerelease
+      - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $version = '${{ github.ref_name }}'.Replace('participant-preview-v', '')
+          $version = '${{ github.ref_name }}'.Replace('participant-v', '')
           gh release create '${{ github.ref_name }}' `
-            "dist/installer/Palworld-Join-Setup-PREVIEW-$version.exe" `
-            "dist/installer/Palworld-Join-Setup-PREVIEW-$version.exe.sha256" `
+            "dist/installer/Palworld-Join-Setup-$version.exe" `
+            "dist/installer/Palworld-Join-Setup-$version.exe.sha256" `
             --verify-tag `
-            --prerelease `
-            --title "Palworld Join PREVIEW v$version" `
-            --notes "未導入PCと実サーバーでの動作確認専用です。正式配布しないでください。"
+            --title "Palworld Join v$version" `
+            --notes "参加者向け正式版です。接続キーを入力すると、Unlimの導入・更新とPalworld接続先の検出を行います。コード署名はないためSmartScreen警告が表示される場合があります。"

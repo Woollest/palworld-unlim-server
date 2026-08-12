@@ -5,13 +5,24 @@ Windows、Docker Desktop、Palworld公式Dockerイメージ、Unlim CLIを組み
 > [!IMPORTANT]
 > 本プロジェクトはPocketpair, Inc.およびUnlimの公式プロジェクトではありません。Palworldおよび関連名称は各権利者に帰属します。
 
+## 2つの正式版アプリ
+
+このリポジトリでは、用途の異なるWindowsアプリを2つ公開しています。
+
+| アプリ | 対象 | ダウンロードするファイル |
+|---|---|---|
+| **PalOps** | サーバー管理者 | `PalOps_*_x64-setup.exe` |
+| **Palworld Join** | ゲーム参加者 | `Palworld-Join-Setup-<version>.exe` |
+
+どちらも[GitHub Releases](https://github.com/Woollest/palworld-unlim-server/releases)から取得します。コード署名はないためWindowsの警告が表示される場合があります。必ず本リポジトリのReleaseからダウンロードしてください。
+
 ## あなたはどの利用者ですか？
 
 | 利用者 | 最初に読む場所 | 主な操作 |
 |---|---|---|
 | 初めてサーバーを構築する人 | [導入担当者向け](#導入担当者向け) | 初期設定、PalOps EXEの導入、初回起動 |
 | 普段サーバーを管理する人 | [運用管理者向け](#運用管理者向け) | PalOps EXEから起動、停止、バックアップ、更新 |
-| ゲームへ参加する人 | [参加者向け](#参加者向け) | Unlim接続、Palworld参加 |
+| ゲームへ参加する人 | [参加者向け](#参加者向け) | Palworld Joinの導入、Unlim接続、Palworld参加 |
 | コードを変更・公開する人 | [開発・保守担当者向け](#開発保守担当者向け) | テスト、CI、リリース、緊急復旧 |
 
 ## 導入担当者向け
@@ -71,7 +82,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 PalOpsで利用できる機能：
 
 - Palworld・Unlim・参加人数・FPS・ディスク容量の確認
-- 参加者一覧、オンライン状態、最終アクセス時刻、参加回数の確認
+- 参加者一覧、オンライン状態、最終オンライン確認時刻、参加回数の確認
 - 起動、安全停止、安全再起動、バックアップ、更新、復元
 - メンテナンス予約とゲーム内・Discord事前通知
 - 24時間のCPU・メモリ・FPS推移と状態診断
@@ -145,27 +156,23 @@ DiscordのAdministrator権限を持つユーザーは、2分で失効する確�
 | 復元・更新前の退避データ | `recovery/` |
 | サーバー・Unlim・自動起動ログ | `logs/` |
 | 参加・退出履歴 | `logs/player-events.csv` |
-| プレイヤー別の最終アクセス | `logs/player-access.json` |
+| プレイヤー別の最終オンライン確認 | `logs/player-access.json` |
 | ローカル操作状態 | `runtime/` |
 | 秘密情報を除いた移行ZIP | `exports/` |
 
 ## 参加者向け
 
-1. Unlimをインストールして起動する
-2. 管理者から受け取った接続キーを入力する
+参加者はPowerShellやUnlim CLIを直接操作せず、正式版の**Palworld Join**を使用します。
 
-```text
-/connect <接続キー>
-```
+1. [GitHub Releases](https://github.com/Woollest/palworld-unlim-server/releases)から最新の`Palworld-Join-Setup-<version>.exe`をダウンロードする
+2. セットアップを実行し、Palworld Joinを起動する
+3. 管理者から受け取った接続キーを入力して`接続する`を押す
+4. 表示された`127.0.0.1:ポート番号`を`接続先をコピー`でコピーする
+5. Steam版Palworldの専用サーバー接続欄へ貼り付ける
 
-3. Unlimが表示したローカルポートを確認する
-4. Palworldの専用サーバー接続欄へ入力する
+初回はアプリがUnlim CLIを導入し、次回以降は更新を確認します。参加中はPalworld Joinを閉じないでください。ポート番号は毎回同じとは限りません。接続キーは参加者以外へ公開しないでください。
 
-```text
-127.0.0.1:8211
-```
-
-ポート8211が使用中の場合は、Unlim画面に表示された番号へ置き換えてください。接続キーは参加者以外へ公開しないでください。
+詳しい説明は[Palworld Join README](participant-app/README.md)を参照してください。
 
 ## 開発・保守担当者向け
 
@@ -218,11 +225,14 @@ PowerShellはPalOpsの内部実装と緊急復旧用に残しています。
 
 ### リリース
 
-`v1.0.0`のようなタグをpushすると、秘密情報を含まない配布ZIP、SHA-256チェックサム、PalOpsインストーラー、更新署名、更新メタデータをGitHub Releaseへ自動公開します。デスクトップ版のバージョンも同じ値へ更新してからタグを作成します。
+`v1.3.0`のようなタグをpushすると管理者向けPalOpsを、`participant-v1.0.0`のようなタグをpushすると参加者向けPalworld JoinをGitHub Releaseへ自動公開します。それぞれのアプリ内バージョンとタグを一致させます。
 
 ```powershell
 git tag v1.0.0
 git push origin v1.0.0
+
+git tag participant-v1.0.0
+git push origin participant-v1.0.0
 ```
 
 自宅PCへの自動デプロイは、GitHub側へサーバー権限や認証情報を持たせないため意図的に含めていません。

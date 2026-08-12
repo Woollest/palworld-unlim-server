@@ -4,7 +4,7 @@
     }
 
     It 'contains the required public entry points' {
-        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/src/main.rs', 'desktop/src-tauri/tauri.release.conf.json', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml', '.github/workflows/desktop.yml', '.github/workflows/release.yml')) {
+        foreach ($Path in @('compose.yaml', 'README.md', 'LICENSE', 'Open-Dashboard.cmd', 'web/index.html', 'web/styles.css', 'web/app.js', 'web/manifest.webmanifest', 'web/service-worker.js', 'web/palops-icon.svg', 'desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/src/main.rs', 'desktop/src-tauri/tauri.release.conf.json', 'participant-app/README.md', 'participant-app/installer/PalworldJoin.iss', 'config/PalWorldSettings.ini.example', 'scripts/dashboard.ps1', 'scripts/dashboard-action.ps1', 'scripts/open-dashboard.ps1', 'scripts/test-project.ps1', '.github/workflows/ci.yml', '.github/workflows/desktop.yml', '.github/workflows/release.yml', '.github/workflows/participant-release.yml')) {
             if (-not (Test-Path (Join-Path $ProjectRoot $Path))) { throw "Missing: $Path" }
         }
     }
@@ -32,7 +32,7 @@
         if ($Session -notmatch 'ArgumentList\.Add\("--connect"\)' -or $Session -notmatch 'process\.Kill\(entireProcessTree: true\)') { throw 'Participant app is not a thin CLI wrapper.' }
         if ($Detector -match '8989.*(?:exclude|ignore)' -or $Detector -notmatch 'GetActiveUdpListeners' -or $Detector -notmatch 'RecommendedPort') { throw 'Participant app port detection is fixed or incomplete.' }
         if ($Detector -notmatch 'Access\\s\+application' -or $Detector -notmatch '\(\?:→\|->\)' -or $Detector -notmatch 'authoritativePorts' -or $Detector -notmatch 'StripAnsi' -or $Detector -notmatch 'TimeSpan\.FromSeconds\(8\)') { throw 'Participant app cannot identify authoritative Unlim mappings.' }
-        if ($Readme -notmatch '動作確認専用のプレリリース' -or $Readme -notmatch 'Powered by Unlim') { throw 'Participant app development and attribution policy is incomplete.' }
+        if ($Readme -notmatch '正式版' -or $Readme -notmatch 'Powered by Unlim') { throw 'Participant app release and attribution policy is incomplete.' }
         if ($Installer -notmatch 'PrivilegesRequired=lowest' -or $Installer -notmatch 'desktopicon' -or $Installer -notmatch '\{group\}\\Palworld Join' -or $Installer -notmatch 'UninstallDisplayIcon') { throw 'Participant app installer and shortcuts are incomplete.' }
     }
 

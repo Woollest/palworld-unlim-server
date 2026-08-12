@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "0.2.0"
+  #define MyAppVersion "1.0.0"
 #endif
 
 #define MyAppName "Palworld Join"
@@ -17,7 +17,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\..\dist\installer
-OutputBaseFilename=Palworld-Join-Setup-PREVIEW-{#MyAppVersion}
+OutputBaseFilename=Palworld-Join-Setup-{#MyAppVersion}
 SetupIconFile=..\..\desktop\src-tauri\icons\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/ultra64
@@ -28,7 +28,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
 RestartApplications=no
 VersionInfoVersion={#MyAppVersion}.0
-VersionInfoDescription=Palworld Join PREVIEW installer
+VersionInfoDescription=Palworld Join installer
 VersionInfoProductName=Palworld Join
 VersionInfoCompany=Woollest
 VersionInfoCopyright=Powered by Unlim

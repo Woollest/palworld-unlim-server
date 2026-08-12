@@ -108,7 +108,7 @@ internal sealed class MainForm : Form
         logBox.Font = new Font("Consolas", 9F);
         Controls.Add(logBox);
 
-        attributionLabel = Label("Powered by Unlim  •  非公式参加ツール  •  PREVIEW", 400, 712, 8.5F);
+        attributionLabel = Label("Powered by Unlim  •  非公式参加ツール", 470, 712, 8.5F);
         Controls.Add(attributionLabel);
 
         ApplyTheme();
