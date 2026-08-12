@@ -64,12 +64,10 @@ function Save-PlayerAccessDirectory {
 }
 
 $Previous = @{}
-if (Test-Path -LiteralPath $StatePath) {
-    try {
-        $SavedPlayers = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
-        foreach ($Player in $SavedPlayers) { $Previous[$Player.userId] = $Player }
-    } catch {}
-}
+# A persisted snapshot may describe the server before maintenance. It must not
+# be compared with the first poll after the monitor restarts, otherwise every
+# previously online player is recorded as leaving during maintenance.
+$PlayerBaselineEstablished = $false
 $PalworldFailureCount = 0
 $PalworldAlerted = $false
 $UnlimAlerted = $false
@@ -125,12 +123,17 @@ while ($true) {
         foreach ($Player in $Players) { $Current[$Player.userId] = $Player }
 
         foreach ($Id in $Current.Keys) {
-            if (-not $Previous.ContainsKey($Id)) {
+            if ($PlayerBaselineEstablished -and -not $Previous.ContainsKey($Id)) {
                 [pscustomobject]@{ timestamp = (Get-Date).ToString('o'); event = 'JOIN'; name = $Current[$Id].name; accountName = $Current[$Id].accountName; userId = $Id } | Export-Csv -LiteralPath $EventsPath -Append -NoTypeInformation -Encoding UTF8
+            }
+            elseif (-not $PlayerBaselineEstablished) {
+                # The player was already present when monitoring resumed. Record a
+                # bounded session start without counting it as a newly observed join.
+                [pscustomobject]@{ timestamp = (Get-Date).ToString('o'); event = 'BASELINE'; name = $Current[$Id].name; accountName = $Current[$Id].accountName; userId = $Id } | Export-Csv -LiteralPath $EventsPath -Append -NoTypeInformation -Encoding UTF8
             }
         }
         foreach ($Id in $Previous.Keys) {
-            if (-not $Current.ContainsKey($Id)) {
+            if ($PlayerBaselineEstablished -and -not $Current.ContainsKey($Id)) {
                 [pscustomobject]@{ timestamp = (Get-Date).ToString('o'); event = 'LEAVE'; name = $Previous[$Id].name; accountName = $Previous[$Id].accountName; userId = $Id } | Export-Csv -LiteralPath $EventsPath -Append -NoTypeInformation -Encoding UTF8
             }
         }
@@ -147,13 +150,7 @@ while ($true) {
             $Record.userId = [string]$Player.userId
             $Record.lastSeenAt = $ObservedAt
             $Record.online = $true
-            if (-not $Previous.ContainsKey($Player.userId)) { $Record.joinCount = [int]$Record.joinCount + 1 }
-        }
-        foreach ($Id in $Previous.Keys) {
-            if (-not $Current.ContainsKey($Id)) {
-                $Key = Get-PlayerIdentityKey $Previous[$Id]
-                if ($Access.ContainsKey($Key)) { $Access[$Key].lastSeenAt = $ObservedAt; $Access[$Key].online = $false }
-            }
+            if ($PlayerBaselineEstablished -and -not $Previous.ContainsKey($Player.userId)) { $Record.joinCount = [int]$Record.joinCount + 1 }
         }
         Save-PlayerAccessDirectory
         if ($Current.Count -ne $Previous.Count -or -not (Test-Path -LiteralPath $StatePath)) {
@@ -161,6 +158,7 @@ while ($true) {
         }
         @($Players) | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $StatePath -Encoding UTF8
         $Previous = $Current
+        $PlayerBaselineEstablished = $true
         $PalworldFailureCount = 0
         if ($PalworldAlerted) {
             Invoke-DiscordNotificationSafe -Type ServiceRecovered -Message 'The Palworld server management connection has recovered.'

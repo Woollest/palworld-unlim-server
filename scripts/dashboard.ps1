@@ -65,9 +65,10 @@ function Get-PlayerSessionStatistics {
                 $Statistics[$Key] = [pscustomobject]@{ totalSeconds = [double]0; activeStart = $null; lastSessionSeconds = $null; longestSessionSeconds = [double]0; completedSessions = 0; estimated = $false }
             }
             $Stat = $Statistics[$Key]
-            if ([string]$Event.event -eq 'JOIN') {
+            if ([string]$Event.event -in @('JOIN', 'BASELINE')) {
                 if ($null -ne $Stat.activeStart) { $Stat.estimated = $true }
                 $Stat.activeStart = $At
+                if ([string]$Event.event -eq 'BASELINE') { $Stat.estimated = $true }
                 continue
             }
             if ([string]$Event.event -eq 'LEAVE') {
@@ -107,7 +108,9 @@ function Get-PlayerAccessDirectory {
                 }
                 $Record = $Directory[$Key]
                 if ([string]$Event.timestamp -lt [string]$Record.firstSeenAt) { $Record.firstSeenAt = [string]$Event.timestamp }
-                if ([string]$Event.timestamp -gt [string]$Record.lastSeenAt) { $Record.lastSeenAt = [string]$Event.timestamp }
+                # Orphan LEAVE records can be produced by older monitor versions
+                # after maintenance. They are not proof that the player was online.
+                if ([string]$Event.event -eq 'JOIN' -and [string]$Event.timestamp -gt [string]$Record.lastSeenAt) { $Record.lastSeenAt = [string]$Event.timestamp }
                 if ([string]$Event.event -eq 'JOIN') { $Record.joinCount = [int]$Record.joinCount + 1 }
             }
         }

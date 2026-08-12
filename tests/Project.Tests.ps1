@@ -232,6 +232,10 @@
         if ($Dashboard -notmatch "'/api/players'" -or $Dashboard -notmatch 'Get-PlayerAccessDirectory') { throw 'Player directory API is missing.' }
         if ($Page -notmatch 'id="playerDirectory"' -or $App -notmatch "fetch\('/api/players'") { throw 'Player directory UI is missing.' }
         if ($App -match 'innerHTML\s*=.*player\.') { throw 'Player-provided values may be rendered as HTML.' }
+        if ($Monitor -notmatch '\$PlayerBaselineEstablished\s*=\s*\$false' -or $Monitor -notmatch '\$PlayerBaselineEstablished\s*=\s*\$true') { throw 'Monitor restart baseline protection is missing.' }
+        if ($Monitor -match '\$Access\[\$Key\]\.lastSeenAt\s*=\s*\$ObservedAt') { throw 'A leave transition can overwrite the last confirmed online time.' }
+        if ($Monitor -notmatch "event = 'BASELINE'" -or $Dashboard -notmatch "'JOIN', 'BASELINE'") { throw 'An already-online player cannot be represented safely after monitor restart.' }
+        if ($Page -notmatch '最終オンライン確認') { throw 'The UI overstates last-seen precision.' }
     }
 
     It 'calculates completed and active player sessions' {
