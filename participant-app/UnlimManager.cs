@@ -32,7 +32,7 @@ internal sealed class UnlimManager
 
         progress?.Report("公式の最新版情報を確認しています…");
         var manifest = await GetManifestAsync(cancellationToken);
-        if (!firstInstall && IsInstalled)
+        if (IsInstalled)
         {
             var installedVersion = await ReadVersionAsync(cancellationToken);
             if (string.Equals(installedVersion, manifest.Version, StringComparison.OrdinalIgnoreCase))
@@ -69,8 +69,9 @@ internal sealed class UnlimManager
             progress?.Report("ファイルサイズとSHA-256を検証しています…");
             if (new FileInfo(staging).Length != expected.Size)
                 throw new InvalidOperationException("ダウンロードサイズが公式情報と一致しません。");
-            await using var stream = File.OpenRead(staging);
-            var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken));
+            string actualHash;
+            await using (var stream = new FileStream(staging, FileMode.Open, FileAccess.Read, FileShare.Read))
+                actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken));
             if (!string.Equals(actualHash, expected.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("SHA-256が公式情報と一致しません。");
 
@@ -87,7 +88,11 @@ internal sealed class UnlimManager
         }
         catch
         {
-            if (File.Exists(backup)) File.Copy(backup, AppPaths.UnlimExecutable, overwrite: true);
+            if (File.Exists(backup))
+            {
+                try { File.Copy(backup, AppPaths.UnlimExecutable, overwrite: true); }
+                catch { /* Preserve the original installation or update error. */ }
+            }
             throw;
         }
         finally
@@ -126,7 +131,7 @@ internal sealed class UnlimManager
         CancellationToken cancellationToken)
     {
         IOException? lastError = null;
-        for (var attempt = 1; attempt <= 3; attempt++)
+        for (var attempt = 1; attempt <= 5; attempt++)
         {
             try
             {
@@ -136,7 +141,7 @@ internal sealed class UnlimManager
             catch (IOException exception)
             {
                 lastError = exception;
-                if (attempt < 3) await Task.Delay(500, cancellationToken);
+                if (attempt < 5) await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), cancellationToken);
             }
         }
         throw lastError ?? new IOException("Unlimを置き換えられませんでした。");
@@ -177,7 +182,7 @@ internal sealed class UnlimManager
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
         client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
             { NoCache = true, NoStore = true };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldJoin/1.0.0");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("PalworldJoin/1.0.1");
         return client;
     }
 

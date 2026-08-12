@@ -4,7 +4,7 @@ Palworld Joinは、PowerShellを使わずにUnlim経由でPalworld Dedicated Ser
 
 ## インストール
 
-1. [Palworld Join v1.0.0 Release](https://github.com/Woollest/palworld-unlim-server/releases/tag/participant-v1.0.0)から`Palworld-Join-Setup-1.0.0.exe`をダウンロードします。
+1. [Palworld Join v1.0.1 Release](https://github.com/Woollest/palworld-unlim-server/releases/tag/participant-v1.0.1)から`Palworld-Join-Setup-1.0.1.exe`をダウンロードします。
 2. セットアップを実行します。
 3. 必要に応じてデスクトップショートカットを作成します。
 
