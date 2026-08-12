@@ -14,7 +14,7 @@ PalOpsのWindows版は、GitHub Releaseの`latest.json`を起動時に確認し�
 ## リリース手順
 
 1. `desktop/src-tauri/Cargo.toml`と`tauri.conf.json`のバージョンを同じ値へ更新します。
-2. 同じ値のタグ（例：`v1.3.0`）を作成してpushします。
+2. 同じ値のタグ（例：`v1.3.1`）を作成してpushします。
 3. Release workflowがサーバー配布ZIP、NSISインストーラー、署名、`latest.json`を同じGitHub Releaseへ登録します。
 
 Windowsの発行元を表示するAuthenticodeコード署名は更新署名とは別です。コード署名証明書を取得した場合は、証明書をGitHub ActionsのSecretまたは外部署名サービスへ登録してからTauriのWindows署名設定を有効にします。

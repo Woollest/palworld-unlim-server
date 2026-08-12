@@ -75,7 +75,19 @@ jobs:
       - name: Build signed updater installer
         shell: pwsh
         working-directory: desktop
-        run: npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis --config src-tauri/tauri.release.conf.json
+        run: |
+          $maximumAttempts = 3
+          for ($attempt = 1; $attempt -le $maximumAttempts; $attempt++) {
+            Write-Host "Tauri NSIS build attempt $attempt of $maximumAttempts"
+            npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis --config src-tauri/tauri.release.conf.json
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($attempt -eq $maximumAttempts) {
+              throw "Tauri NSIS build failed after $maximumAttempts attempts."
+            }
+            # Tauri downloads NSIS during bundling. GitHub or the remote peer can
+            # occasionally terminate that transfer, so retry with a short backoff.
+            Start-Sleep -Seconds (15 * $attempt)
+          }
 
       - name: Create updater metadata
         shell: pwsh

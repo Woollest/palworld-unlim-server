@@ -39,6 +39,11 @@
         if ($Installer -notmatch 'PrivilegesRequired=lowest' -or $Installer -notmatch 'desktopicon' -or $Installer -notmatch '\{group\}\\Palworld Join' -or $Installer -notmatch 'UninstallDisplayIcon') { throw 'Participant app installer and shortcuts are incomplete.' }
     }
 
+    It 'retries transient NSIS bundler downloads' {
+        $Release = Get-Content -LiteralPath (Join-Path $ProjectRoot '.github/workflows/release.yml') -Raw
+        if ($Release -notmatch '\$maximumAttempts\s*=\s*3' -or $Release -notmatch 'Tauri NSIS build attempt' -or $Release -notmatch 'Start-Sleep -Seconds') { throw 'Desktop release does not retry transient NSIS download failures.' }
+    }
+
     It 'keeps the REST API on localhost' {
         $Compose = Get-Content -LiteralPath (Join-Path $ProjectRoot 'compose.yaml') -Raw
         if ($Compose -notmatch '127\.0\.0\.1:\$\{PALWORLD_REST_PORT:-8212\}:8212/tcp') { throw 'REST API is not bound to localhost.' }
