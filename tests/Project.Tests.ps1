@@ -237,7 +237,9 @@
         $App = Get-Content -LiteralPath (Join-Path $ProjectRoot 'web/app.js') -Raw
         if ($Monitor -notmatch 'player-access\.json' -or $Monitor -notmatch 'lastSeenAt' -or $Monitor -notmatch 'Save-PlayerAccessDirectory') { throw 'Persistent player access tracking is incomplete.' }
         if ($Dashboard -notmatch "'/api/players'" -or $Dashboard -notmatch 'Get-PlayerAccessDirectory') { throw 'Player directory API is missing.' }
+        if ($Dashboard -notmatch '\$PersistedPlayers\s*=.*ConvertFrom-Json' -or $Dashboard -match 'foreach \(\$Player in @\(Get-Content[^\r\n]+PlayerAccessPath') { throw 'Player history JSON is not normalized for Windows PowerShell 5.' }
         if ($Page -notmatch 'id="playerDirectory"' -or $App -notmatch "fetch\('/api/players'") { throw 'Player directory UI is missing.' }
+        if ($App -notmatch 'プレイヤー履歴の取得に失敗しました') { throw 'Player history failures leave the loading placeholder visible.' }
         if ($App -match 'innerHTML\s*=.*player\.') { throw 'Player-provided values may be rendered as HTML.' }
         if ($Monitor -notmatch '\$PlayerBaselineEstablished\s*=\s*\$false' -or $Monitor -notmatch '\$PlayerBaselineEstablished\s*=\s*\$true') { throw 'Monitor restart baseline protection is missing.' }
         if ($Monitor -match '\$Access\[\$Key\]\.lastSeenAt\s*=\s*\$ObservedAt') { throw 'A leave transition can overwrite the last confirmed online time.' }

@@ -93,7 +93,10 @@ function Get-PlayerAccessDirectory {
     $SessionStatistics = Get-PlayerSessionStatistics
     if (Test-Path -LiteralPath $PlayerAccessPath) {
         try {
-            foreach ($Player in @(Get-Content -LiteralPath $PlayerAccessPath -Raw | ConvertFrom-Json)) {
+            # Windows PowerShell 5 may preserve a JSON array as one pipeline
+            # object when the conversion expression is wrapped in @(...).
+            $PersistedPlayers = Get-Content -LiteralPath $PlayerAccessPath -Raw | ConvertFrom-Json
+            foreach ($Player in $PersistedPlayers) {
                 $Directory[[string]$Player.key] = $Player
             }
         }

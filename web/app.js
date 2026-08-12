@@ -141,7 +141,10 @@ async function refreshPlayerDirectory() {
     const body = await response.json();
     if (!response.ok) throw new Error(body.error);
     renderPlayerDirectory(body.players ?? []);
-  } catch { $('playerDirectoryCount').textContent = '履歴を取得できません'; }
+  } catch {
+    $('playerDirectoryCount').textContent = '履歴を取得できません';
+    $('playerDirectory').replaceChildren(Object.assign(document.createElement('p'), { className: 'empty', textContent: 'プレイヤー履歴の取得に失敗しました。更新ボタンで再試行してください。' }));
+  }
 }
 
 function renderBackups(backups) {
