@@ -110,14 +110,14 @@ function Invoke-DiscordApi {
         [Parameter(Mandatory = $true)][string]$JsonBody
     )
     $LastError = $null
-    for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
+    for ($Attempt = 1; $Attempt -le 2; $Attempt++) {
         try {
-            return Invoke-RestMethod -Method $Method -Uri $Uri -Headers $Headers -ContentType 'application/json; charset=utf-8' -Body $JsonBody
+            return Invoke-RestMethod -Method $Method -Uri $Uri -Headers $Headers -ContentType 'application/json; charset=utf-8' -Body $JsonBody -TimeoutSec 5
         }
         catch {
             $LastError = $_
-            if ($Attempt -lt 3) {
-                Start-Sleep -Seconds ([math]::Pow(2, $Attempt))
+            if ($Attempt -lt 2) {
+                Start-Sleep -Seconds 2
             }
         }
     }

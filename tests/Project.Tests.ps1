@@ -216,6 +216,13 @@
         if ($Notifier -notmatch 'DISCORD_ADMIN_LOG_CHANNEL_ID' -or $Notifier -notmatch '\$Type -eq ''Maintenance''' -or $Template -notmatch 'DISCORD_ADMIN_LOG_CHANNEL_ID=') { throw 'Discord channel routing is incomplete.' }
     }
 
+    It 'bounds Discord API calls used during maintenance' {
+        foreach ($Name in @('discord-notify.ps1', 'discord-status.ps1', 'discord-connection.ps1')) {
+            $Content = Get-Content -LiteralPath (Join-Path $ProjectRoot "scripts/$Name") -Raw
+            if ($Content -notmatch 'Invoke-RestMethod[^\r\n]+-TimeoutSec\s+5') { throw "$Name has no bounded Discord API timeout." }
+        }
+    }
+
     It 'records and displays player access history locally' {
         $Monitor = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/player-monitor.ps1') -Raw
         $Dashboard = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/dashboard.ps1') -Raw

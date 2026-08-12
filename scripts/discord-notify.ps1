@@ -36,14 +36,14 @@ $Color = $Appearance.Color
 $Body = @{ embeds = @(@{ title = $Title; description = $Message; color = $Color; timestamp = (Get-Date).ToUniversalTime().ToString('o'); footer = @{ text = 'Palworld Server Bot' } }); allowed_mentions = @{ parse = @() } } | ConvertTo-Json -Depth 7
 $Headers = @{ Authorization = "Bot $Token"; 'User-Agent' = 'DiscordBot (https://github.com/openai/codex, 1.0)' }
 $LastError = $null
-for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
+for ($Attempt = 1; $Attempt -le 2; $Attempt++) {
     try {
-        Invoke-RestMethod -Method Post -Uri "https://discord.com/api/v10/channels/$ChannelId/messages" -Headers $Headers -ContentType 'application/json; charset=utf-8' -Body $Body | Out-Null
+        Invoke-RestMethod -Method Post -Uri "https://discord.com/api/v10/channels/$ChannelId/messages" -Headers $Headers -ContentType 'application/json; charset=utf-8' -Body $Body -TimeoutSec 5 | Out-Null
         return
     }
     catch {
         $LastError = $_
-        if ($Attempt -lt 3) { Start-Sleep -Seconds ([math]::Pow(2, $Attempt)) }
+        if ($Attempt -lt 2) { Start-Sleep -Seconds 2 }
     }
 }
 throw $LastError

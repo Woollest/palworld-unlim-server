@@ -56,9 +56,9 @@ $ApiBase = 'https://discord.com/api/v10'
 function Invoke-DiscordRequest {
     param([string]$Method, [string]$Uri)
     $LastError = $null
-    for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
-        try { return Invoke-RestMethod -Method $Method -Uri $Uri -Headers $Headers -ContentType 'application/json; charset=utf-8' -Body $Body }
-        catch { $LastError = $_; if ($Attempt -lt 3) { Start-Sleep -Seconds ([math]::Pow(2, $Attempt)) } }
+    for ($Attempt = 1; $Attempt -le 2; $Attempt++) {
+        try { return Invoke-RestMethod -Method $Method -Uri $Uri -Headers $Headers -ContentType 'application/json; charset=utf-8' -Body $Body -TimeoutSec 5 }
+        catch { $LastError = $_; if ($Attempt -lt 2) { Start-Sleep -Seconds 2 } }
     }
     throw $LastError
 }
